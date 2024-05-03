@@ -601,7 +601,6 @@ int X2Mount::isCompletePark(bool& bComplete) const
     if(bComplete) {
         // stop tracking
         nErr = pMe->setTrackingRates( false, true, 0.0, 0.0);
-        pMe->mOnStep.setMountIsParked(true);
     }
 
     return nErr;
@@ -643,7 +642,6 @@ int X2Mount::isCompleteUnpark(bool& bComplete) const
     bComplete = false;
 
     nErr = pMe->mOnStep.isUnparkDone(bComplete);
-    pMe->mOnStep.setMountIsParked(false);
 
     if(bComplete) { // no longer parked.
         pMe->m_bParked = false;

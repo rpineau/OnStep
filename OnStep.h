@@ -29,6 +29,8 @@
 #define PLUGIN_DEBUG 3   // define this to have log files, 1 = bad stuff only, 2 and up.. full debug
 
 enum OnStepErrors {PLUGIN_OK=0, NOT_CONNECTED, PLUGIN_CANT_CONNECT, PLUGIN_BAD_CMD_RESPONSE, COMMAND_FAILED, PLUGIN_ERROR, COMMAND_TIMEOUT};
+enum OnStepTrackRate {NOT_TRACKING, SIDEREAL, LUNAR, SOLAR, KING, TRACKING_OTHER};
+enum OnStepSideOfPier {WEST, EAST};
 
 #define SERIAL_BUFFER_SIZE 256
 #define MAX_TIMEOUT 2000            // WiFi  on tht OnStep can take up to 1600 ms to respond !!!
@@ -84,8 +86,7 @@ public:
     int gotoPark(double dAlt, double dAz);
     int getAtPark(bool &bParked);
     int unPark();
-    void setMountIsParked(bool bIsParked);
-    int isUnparkDone(bool &bcomplete);
+	int isUnparkDone(bool &bcomplete);
     int isTrackingOn(bool &bTrakOn);
 
     int getLimits(double &dHoursEast, double &dHoursWest);
@@ -127,15 +128,19 @@ private:
 
     bool    m_bSyncLocationDataConnect;
     bool    m_bHomeOnUnpark;
-    bool    m_bUnparking;
     bool    m_bParking;
+	bool	m_bIsTracking;
+	bool	m_bIsParking;
+	bool	m_bIsSlewing;
     int     m_nNbHomingTries;
     bool    m_bSyncDone;
-    bool    m_bIsHomed;
+    bool    m_bIsAtHomed;
     bool    m_bIsParked;
     bool    m_bSlewing;
     bool    m_bStopTrackingOnDisconnect;
-    
+	int		m_nTrackRate;
+	int		m_nSideOfPier;
+	
     double m_dRaRateArcSecPerSec;
     double m_dDecRateArcSecPerSec;
 
@@ -158,7 +163,7 @@ private:
     int     sendCommand(const std::string sCmd, std::string &sResp, int nTimeout = MAX_TIMEOUT, char cEndOfResponse = '#', int nExpectedResLen = 1);
     int     readResponse(std::string &sResp, int nTimeout = MAX_TIMEOUT, char cEndOfResponse = '#', int nExpectedResLen = 1);
 
-    int     getStatus(std::string &sStatus);
+    int     getStatus();
     
     int     setSiteLongitude(const std::string sLongitude);
     int     setSiteLatitude(const std::string sLatitude);
@@ -179,8 +184,6 @@ private:
     int     convertDDMMSSToDecDeg(const std::string sStrDeg, double &dDecDeg);
     void    convertRaToHHMMSSt(double dRa, std::string &sResult);
     int     convertHHMMSStToRa(const std::string szStrRa, double &dRa);
-
-    int     getDecAxisAlignmentOffset(double &dOffset);
 
     int     parseFields(const std::string sIn, std::vector<std::string> &svFields, char cSeparator);
 

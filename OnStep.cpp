@@ -24,10 +24,9 @@ OnStep::OnStep()
     m_bHomeOnUnpark = false;
 
     m_bSyncDone = false;
-    m_bIsHomed = false;
+    m_bIsAtHomed = false;
     m_bIsParked = true;
     m_bParking = false;
-    m_bUnparking = false;
     m_bSlewing = false;
     m_bStopTrackingOnDisconnect = true;
     
@@ -88,11 +87,12 @@ int OnStep::Connect(std::string sPort)
 	m_pSerx->flushTx();
 	m_pSerx->purgeTxRx();
 	m_pSerx->close();
-	if(m_pSerx->open(sPort.c_str(), 57600, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
+	if(m_pSerx->open(sPort.c_str(), 56700, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
 		m_bIsConnected = true;
 	else
 		m_bIsConnected = false;
 */
+	
 
     if(!m_bIsConnected)
         return ERR_COMMNOLINK;
@@ -114,7 +114,7 @@ int OnStep::Connect(std::string sPort)
         return nErr;
     }
     m_bSyncDone = false;
-	isHomingDone(m_bIsHomed);
+	isHomingDone(m_bIsAtHomed);
 
     return SB_OK;
 }
@@ -291,17 +291,57 @@ int OnStep::getFirmwareVersion(std::string &sFirmware)
     return nErr;
 }
 
-int OnStep::getStatus(std::string &sStatus)
+int OnStep::getStatus()
 {
     int nErr = PLUGIN_OK;
-    std::string sResp;
-    
-    sStatus.clear();
-    nErr = sendCommand(":GU#", sResp);
+    std::string sStatus;
+
+	nErr = sendCommand(":GU#", sStatus);
     if(nErr) {
     }
-    sStatus.assign(sResp);
-    
+
+	if(sStatus.find("P") != std::string::npos)
+		m_bIsParked = true;
+
+	if(sStatus.find("p") != std::string::npos)
+		m_bIsParked = false;
+
+	if(sStatus.find("H") != std::string::npos)
+		m_bIsAtHomed = true;
+	else
+		m_bIsAtHomed = false;
+
+	if(sStatus.find("N") != std::string::npos && sStatus.find("n") != std::string::npos)
+		m_bIsTracking = false; // mount is idle
+
+	if(sStatus.find("N") == std::string::npos && sStatus.find("n") != std::string::npos) {
+		if(sStatus.find("I") != std::string::npos)
+			m_bIsParked = true;
+		else
+			m_bIsSlewing = true;
+	}
+
+	if(sStatus.find("N") != std::string::npos && sStatus.find("n") == std::string::npos)
+		m_bIsTracking  = true;
+
+	if(sStatus.find("N") != std::string::npos && sStatus.find("n") != std::string::npos)
+		m_bIsSlewing  = true;
+
+	if(m_bIsTracking) {
+		m_nTrackRate = SIDEREAL;
+		if(sStatus.find("(") != std::string::npos)
+			m_nTrackRate = LUNAR;
+		else if(sStatus.find("O") != std::string::npos)
+			m_nTrackRate = SOLAR;
+		else if(sStatus.find("k") != std::string::npos)
+			m_nTrackRate = KING;
+	}
+
+	if(sStatus.find("W") != std::string::npos)
+		m_nSideOfPier = WEST;
+	else if(sStatus.find("T") != std::string::npos)
+		m_nSideOfPier = EAST;
+
     return nErr;
 }
 
@@ -315,13 +355,8 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getRaAndDec] Called." << std::endl;
     m_sLogFile.flush();
 #endif
-    if(m_bUnparking) {
-        dRa = m_dRa;
-        dDec = m_dDec;
-        return nErr;
-    }
 
-    // get RA
+	// get RA
     nErr = sendCommand(":GRH#", sResp);
     if(nErr) {
         // retry
@@ -677,7 +712,7 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 		m_dRaRateArcSecPerSec = 0.0;
 		m_dDecRateArcSecPerSec = 0.0;
         nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
-		// nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
+		nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
     }
     // Lunar
     else if (0.30 < dRaRateArcSecPerSec && dRaRateArcSecPerSec < 0.83 && -0.25 < dDecRateArcSecPerSec && dDecRateArcSecPerSec < 0.25) {
@@ -688,7 +723,7 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 		m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
 		m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
         nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
-        // nErr = sendCommand(":TL#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Lunar rate
+        nErr = sendCommand(":TL#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Lunar rate
     }
     // solar
     else if (0.037 < dRaRateArcSecPerSec && dRaRateArcSecPerSec < 0.043 && -0.017 < dDecRateArcSecPerSec && dDecRateArcSecPerSec < 0.017) {
@@ -699,7 +734,7 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 		m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
 		m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
         nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
-        // nErr = sendCommand(":TS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Solar rate
+        nErr = sendCommand(":TS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Solar rate
     }
     // default to sidereal
     else {
@@ -710,14 +745,8 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 		m_dRaRateArcSecPerSec = 0.0;
 		m_dDecRateArcSecPerSec = 0.0;
 		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
-		// nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
+		nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
     }
-
-	ssTmp << ":SXTR," << std::fixed << std::setprecision(8) << (m_dRaRateArcSecPerSec/TSX_ARCSEC_SEC) * 15.0 << "#";
-	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // set Ra rate
-	std::stringstream().swap(ssTmp);
-	ssTmp << ":SXTD," << std::fixed << std::setprecision(8) << (m_dDecRateArcSecPerSec/TSX_ARCSEC_SEC) * 15.0 << "#";
-	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // set Dec rate
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     nErr = sendCommand(":GT#", sResp);
@@ -747,43 +776,21 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
         return nErr;
     }
 
-	nErr = sendCommand(":GXTR#", sResp);
-    if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] Error getting tracking rate for Ra, response : " << sResp << std::endl;
-        m_sLogFile.flush();
-#endif
-        return nErr;
-    }
-	dRaRateArcSecPerSec = (std::stod(sResp)/15.0)*TSX_ARCSEC_SEC;
-
-	nErr = sendCommand(":GXTD#", sResp);
-	if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] Error getting tracking rate for Ra, response : " << sResp << std::endl;
-		m_sLogFile.flush();
-#endif
-		return nErr;
-	}
-	dDecRateArcSecPerSec = (std::stod(sResp)/15.0)*TSX_ARCSEC_SEC;
-
-
-	if(fequal(dRaRateArcSecPerSec, 0.0) && fequal(dDecRateArcSecPerSec, 0.0)) {
+	else if(m_nTrackRate == SIDEREAL) {
 		dRaRateArcSecPerSec = 0.0;
 		dDecRateArcSecPerSec = 0.0;
 		bSiderialTrackingOn = true;
 	}
-	else if(fgt(dRaRateArcSecPerSec, 15.0) && fequal(dDecRateArcSecPerSec, 0.0)) {
-		dRaRateArcSecPerSec = 15.0410681; // Convention to say tracking is off - see TSX documentation
-		dDecRateArcSecPerSec = 0;
-		bSiderialTrackingOn = false;
-	}
-	else {
+	else if(m_nTrackRate == LUNAR ||  m_nTrackRate == SOLAR || m_nTrackRate == KING) {
 		dRaRateArcSecPerSec = m_dRaRateArcSecPerSec;	// return the speed we set in TSX
 		dDecRateArcSecPerSec = m_dDecRateArcSecPerSec;	// same on Dec.
 		bSiderialTrackingOn = false;
 	}
-
+	else { // Sidereal by default
+		dRaRateArcSecPerSec = 0.0;
+		dDecRateArcSecPerSec = 0.0;
+		bSiderialTrackingOn = true;
+	}
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] bSiderialTrackingOn  : " << (bSiderialTrackingOn?"Yes":"No") << std::endl;
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] dRaRateArcSecPerSec  : " << std::fixed << std::setprecision(8) << dRaRateArcSecPerSec << std::endl;
@@ -1103,7 +1110,6 @@ int OnStep::gotoPark(double dAlt, double dAz)
 int OnStep::getAtPark(bool &bParked)
 {
     int nErr = PLUGIN_OK;
-	std::string sStatus;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getAtPark] Called." << std::endl;
@@ -1111,20 +1117,13 @@ int OnStep::getAtPark(bool &bParked)
 #endif
     bParked = false;
 
-	nErr = getStatus(sStatus);
+	nErr = getStatus(); // will update the flags
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getAtPark] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
 #endif
 		return nErr;
-	}
-
-	if(sStatus.find("P") != std::string::npos) {
-		m_bIsParked = true;
-	}
-	else {
-		m_bIsParked = false;
 	}
 
 	bParked = m_bIsParked;
@@ -1155,15 +1154,16 @@ int OnStep::unPark()
 		m_sLogFile.flush();
 #endif
 	}
-	else
-		m_bIsParked = false;
+
+	nErr = getStatus(); // will update the flags
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [unPark] getStatus error " << nErr << std::endl;
+		m_sLogFile.flush();
+#endif
+	}
 
 	return nErr;
-}
-
-void OnStep::setMountIsParked(bool bIsParked)
-{
-    m_bIsParked = bIsParked;
 }
 
 int OnStep::isUnparkDone(bool &bComplete)
@@ -1180,28 +1180,17 @@ int OnStep::isUnparkDone(bool &bComplete)
 #endif
 
     bComplete = false;
-    if(!m_bUnparking) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] not unparking, checking at park state " << nErr << std::endl;
-        m_sLogFile.flush();
-#endif
-        nErr = getAtPark(bAtPArk);
-        if(!bAtPArk)
-            bComplete = true;
+	nErr = getAtPark(bAtPArk);
+	if(!bAtPArk)
+		bComplete = true;
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
         m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] bAtPArk   " << (bAtPArk?"Yes":"No") << std::endl;
         m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] bComplete " << (bComplete?"Yes":"No") << std::endl;
         m_sLogFile.flush();
 #endif
-        return nErr;
-    }
-
-    // unparking and homing is done, enable tracking a sidereal rate
-    m_bUnparking = false;
-    bComplete = true;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] m_bIsHomed   " << (m_bIsHomed?"Yes":"No") << std::endl;
+    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] m_bIsAtHomed   " << (m_bIsAtHomed?"Yes":"No") << std::endl;
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] bComplete " << (bComplete?"Yes":"No") << std::endl;
     m_sLogFile.flush();
 #endif
@@ -1229,7 +1218,7 @@ int OnStep::homeMount()
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [homeMount] Called." << std::endl;
     m_sLogFile.flush();
 #endif
-	if(m_bIsHomed) {
+	if(m_bIsAtHomed) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [homeMount] already homed." << std::endl;
 		m_sLogFile.flush();
@@ -1252,7 +1241,6 @@ int OnStep::homeMount()
 int OnStep::isHomingDone(bool &bIsHomed)
 {
     int nErr = PLUGIN_OK;
-    std::string sStatus;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] Called." << std::endl;
@@ -1260,23 +1248,16 @@ int OnStep::isHomingDone(bool &bIsHomed)
 #endif
     bIsHomed = false;
 
-	nErr = getStatus(sStatus);
+	nErr = getStatus(); // will update the flags
 	if(nErr) {
 #if defined PLUGIN_DEBUG
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] getStatus error " << nErr << " , response :" << sStatus << std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
 #endif
 		return nErr;
 	}
 
-	if(sStatus.find("H") != std::string::npos) {
-		m_bIsHomed = true;
-	}
-	else {
-		m_bIsHomed = false;
-	}
-
-	bIsHomed = m_bIsHomed;
+	bIsHomed = m_bIsAtHomed;
     return nErr;
 }
 
@@ -1284,18 +1265,25 @@ int OnStep::isHomingDone(bool &bIsHomed)
 int OnStep::isTrackingOn(bool &bTrackOn)
 {
     int nErr = PLUGIN_OK;
-    std::string sStatus;
+    std::string sResp;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isTrackingOn] Called." << std::endl;
     m_sLogFile.flush();
 #endif
-    bTrackOn = false;
 
-    nErr = getStatus(sStatus);
+	bTrackOn = false;
+	nErr = getStatus(); // will update the flags
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isTrackingOn] getStatus error " << nErr << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
+	}
 
-    // to do : parse status or check flags
-    
+	bTrackOn = m_bIsTracking;
+
 #if defined PLUGIN_DEBUG
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isTrackingOn] bTrackOn : " << (bTrackOn?"Yes":"No")<< std::endl;
     m_sLogFile.flush();
@@ -1316,9 +1304,7 @@ int OnStep::Abort()
 
     nErr = sendCommand(":Q#", sResp, 0);
 
-    m_bUnparking = false;
-    
-    return nErr;
+	return nErr;
 }
 
 #pragma mark - time and site methods
@@ -1914,64 +1900,10 @@ int OnStep::convertHHMMSStToRa(const std::string szStrRa, double &dRa)
 }
 
 
-
-int OnStep::getDecAxisAlignmentOffset(double &dOffset)
-{
-    int nErr = PLUGIN_OK;
-    std::string sResp;
-
-    dOffset = 0;
-
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getDecAxisAlignmentOffset] Called." << std::endl;
-    m_sLogFile.flush();
-#endif
-
-    // get Dec Axis Alignment Offset
-    nErr = sendCommand(":CG3#", sResp);
-    if(nErr) {
-        if(nErr == COMMAND_TIMEOUT) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
-            nErr = sendCommand(":CG3#", sResp);
-        }
-        if(nErr) {
-#if defined PLUGIN_DEBUG
-            m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getDecAxisAlignmentOffset] :CG3# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
-            m_sLogFile.flush();
-#endif
-            return nErr;
-        }
-    }
-
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getDecAxisAlignmentOffset]  sResp : " << sResp << std::endl;
-    m_sLogFile.flush();
-#endif
-
-    try {
-        if(sResp.size() == 0)
-            return ERR_CMDFAILED;
-
-        dOffset = std::stod(sResp);
-    }
-    catch(const std::exception& e) {
-#if defined PLUGIN_DEBUG
-        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getDecAxisAlignmentOffset] conversion exception : " << e.what() << std::endl;
-        m_sLogFile.flush();
-#endif
-    }
-
-    return nErr;
-}
-
 int OnStep::IsBeyondThePole(bool &bBeyondPole)
 {
     int nErr = PLUGIN_OK;
     std::string sResp;
-    std::vector<std::string> vFieldsData;
-    double dDecAxis = 0;
-    double dDecAxisForSideOfPier = 0;
-    double dOffset = 0;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [IsBeyondThePole] Called." << std::endl;
@@ -1980,11 +1912,17 @@ int OnStep::IsBeyondThePole(bool &bBeyondPole)
 
     bBeyondPole = false;
 
-    if(m_bUnparking) {
-        return nErr;
-    }
+	nErr = sendCommand(":Gm#", sResp);
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [IsBeyondThePole] error " << nErr << ", response : " << sResp << std::endl;
+		m_sLogFile.flush();
+#endif
+	}
 
-	// :Gm# get meridian pier side
+	// “beyond the pole” =  “telescope west of the pier”,
+	if(sResp.find("W") != std::string::npos)
+		bBeyondPole = true;
 
 	return nErr;
 }
