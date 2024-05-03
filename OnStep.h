@@ -90,7 +90,7 @@ public:
     int isTrackingOn(bool &bTrakOn);
 
     int getLimits(double &dHoursEast, double &dHoursWest);
-
+	int getflipHourAngle(double &dHourAngle);
     int Abort();
 
     int setSiteData(double dLongitude, double dLatitute, double dTimeZone);

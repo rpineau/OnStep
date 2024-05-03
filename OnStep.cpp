@@ -284,7 +284,7 @@ int OnStep::getFirmwareVersion(std::string &sFirmware)
     m_sLogFile.flush();
 #endif
 
-    nErr = sendCommand(":AV#", sResp);
+    nErr = sendCommand(":GVN#", sResp);
     if(sResp.size() == 0)
         return ERR_CMDFAILED;
     sFirmware.assign(sResp);
@@ -298,6 +298,10 @@ int OnStep::getStatus()
 
 	nErr = sendCommand(":GU#", sStatus);
     if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] ERROR : " << nErr << " , sResp : " << sStatus << std::endl;
+		m_sLogFile.flush();
+#endif
     }
 
 	if(sStatus.find("P") != std::string::npos)
@@ -445,10 +449,10 @@ int OnStep::getAltAndAz(double &dAlt, double &dAz)
 #endif
 
     // get Az
-    nErr = sendCommand(":GZ#", sResp);
+    nErr = sendCommand(":GZH#", sResp);
     if(nErr) {
         // retry
-        nErr = sendCommand(":GZ#", sResp);
+        nErr = sendCommand(":GZH#", sResp);
         if(nErr) {
 #if defined PLUGIN_DEBUG
             m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getAltAndAz] :GZ# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
@@ -487,10 +491,10 @@ int OnStep::getAltAndAz(double &dAlt, double &dAz)
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
     // get Alt
-    nErr = sendCommand(":GA#", sResp);
+    nErr = sendCommand(":GAH#", sResp);
     if(nErr) {
         // retry
-        nErr = sendCommand(":GA#", sResp);
+        nErr = sendCommand(":GAH#", sResp);
         if(nErr) {
 #if defined PLUGIN_DEBUG
             m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getAltAndAz] :GA# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
@@ -805,13 +809,74 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
 int OnStep::getLimits(double &dHoursEast, double &dHoursWest)
 {
     int nErr = PLUGIN_OK;
+	std::string sResp;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getLimits] Called." << std::endl;
     m_sLogFile.flush();
 #endif
+
+	nErr = sendCommand(":GXEe#", sResp);
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getLimits] :GXEe# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
+		m_sLogFile.flush();
+#endif
+	}
+
+	dHoursEast = std::stod(sResp)/15.0;
+
+	nErr = sendCommand(":GXEw#", sResp);
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getLimits] :GXEw# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
+		m_sLogFile.flush();
+#endif
+	}
+
+	dHoursWest = std::stod(sResp)/15.0;
+
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getLimits] dHoursEast  : " << std::fixed << std::setprecision(8) << dHoursEast << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getLimits] dHoursWest  : " << std::fixed << std::setprecision(8) << dHoursWest << std::endl;
+	m_sLogFile.flush();
+#endif
+
     return nErr;
 
+}
+
+int OnStep::getflipHourAngle(double &dHourAngle)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+	double dEast, dWest;
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getflipHourAngle] Called." << std::endl;
+	m_sLogFile.flush();
+#endif
+
+	nErr = sendCommand(":GXE9#", sResp);
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getflipHourAngle] :GXE9# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
+		m_sLogFile.flush();
+#endif
+	}
+	dEast = std::fabs(std::stod(sResp))/15.0;
+
+	nErr = sendCommand(":GXEA#", sResp);
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getflipHourAngle] :GXEA# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
+		m_sLogFile.flush();
+#endif
+	}
+	dWest = std::fabs(std::stod(sResp))/15.0;
+
+	dHourAngle = (dEast>dWest)?dWest:dEast; // we take the smallest one as TSX only has 1 value
+
+	return nErr;
 }
 
 #pragma mark - Slew
@@ -1746,7 +1811,7 @@ void OnStep::convertDecAzToDDMMSSs(double dDeg, std::string &sResult)
     ss = (mm*60) - MM;
     SS = ss*60;
 
-    ssTmp << std::setfill('0') << std::setw(3) << DD << "*" << std::setfill('0') << std::setw(2) << MM << "'" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(3) << SS;
+    ssTmp << std::setfill('0') << std::setw(3) << DD << "*" << std::setfill('0') << std::setw(2) << MM << "'" << std::setfill('0') << std::setw(6) << std::fixed << std::setprecision(3) << SS;
     sResult.assign(ssTmp.str());
 }
 
@@ -1773,7 +1838,7 @@ void OnStep::convertDecDegToDDMMSS_ForDecl(double dDeg, std::string &sResult)
     ss = (mm*60) - MM;
     SS = ss*60;
 
-    ssTmp << cSign << std::setfill('0') << std::setw(2) << DD << "*" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(3)<< SS;
+    ssTmp << cSign << std::setfill('0') << std::setw(2) << DD << "*" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(6) << std::fixed << std::setprecision(3)<< SS;
     sResult.assign(ssTmp.str());
 }
 
@@ -1848,14 +1913,14 @@ void OnStep::convertRaToHHMMSSt(double dRa, std::string &sResult)
 #endif
 
     sResult.clear();
-    // convert Ra value to HH:MM:SS.S
+    // convert Ra value to HH:MM:SS.SSSS
     HH = int(dRa);
     hh = dRa - HH;
     MM = int(hh*60);
     mm = (hh*60) - MM;
     SSt = mm * 60;
 
-    ssTmp << std::setfill('0') << std::setw(2) << HH << ":" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(4) << SSt;
+    ssTmp << std::setfill('0') << std::setw(2) << HH << ":" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(7) << std::fixed << std::setprecision(4) << SSt;
     sResult.assign(ssTmp.str());
 }
 

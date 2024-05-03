@@ -672,15 +672,19 @@ int X2Mount::beyondThePole(bool& bYes) {
     int nErr = SB_OK;
     X2MutexLocker ml(GetMutex());
     // “beyond the pole” =  “telescope west of the pier”,
-    // nErr = mOnStep.IsBeyondThePole(bYes);
+    nErr = mOnStep.IsBeyondThePole(bYes);
 	return nErr;
 }
 
 
 double X2Mount::flipHourAngle()
 {
+	int nErr = SB_OK;
+	double dHourAngle = 0.0;
     X2MutexLocker ml(GetMutex());
-	return 0.0;
+	nErr = mOnStep.getflipHourAngle(dHourAngle);
+
+	return dHourAngle;
 }
 
 MountTypeInterface::Type X2Mount::mountType()
@@ -695,11 +699,8 @@ int X2Mount::gemLimits(double& dHoursEast, double& dHoursWest)
         return ERR_NOLINK;
 
     X2MutexLocker ml(GetMutex());
-    // nErr = mOnStep.getLimits(dHoursEast, dHoursWest);
+    nErr = mOnStep.getLimits(dHoursEast, dHoursWest);
 
-    // temp debugging.
-	dHoursEast = 0.0;
-	dHoursWest = 0.0;
     return SB_OK;
 }
 
