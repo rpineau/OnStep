@@ -40,6 +40,15 @@ enum OnStepErrors {PLUGIN_OK=0, NOT_CONNECTED, PLUGIN_CANT_CONNECT, PLUGIN_BAD_C
 #define INTER_COMMAND_DELAY_SECONDS     0.150
 #define SHORT_RESPONSE  0x04   // EOT
 
+#define SmallestFloat               0.0000005F
+#define SIDEREAL_RATE_HZ            60.16427456104770L
+#define hzToSidereal(x)             ((x)/(double)SIDEREAL_RATE_HZ)
+#define siderealToHz(x)             ((x)*(double)SIDEREAL_RATE_HZ)
+#define fequal(x,y)                 (fabs((x)-(y))<SmallestFloat)
+#define fgt(x,y)                    ((x)-(y)>SmallestFloat)
+
+#define TSX_ARCSEC_SEC				15.0410681
+
 // Define Class for Astrometric Instruments OnStep controller.
 class OnStep
 {
@@ -163,7 +172,7 @@ private:
     int     setTargetAltAz(double dAlt, double dAz);
     int     slewTargetRA_DecEpochNow();
 
-    void    convertDecDegToDDMM(double dDeg, std::string &sResult);
+	void    convertDecDegToDDMMSS(double dDeg, std::string &sResult);
     void    convertDecDegToDDMMSS_ForDecl(double dDeg, std::string &sResult);
     void    convertDecAzToDDMMSSs(double dDeg, std::string &sResult);
 

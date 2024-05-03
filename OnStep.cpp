@@ -81,6 +81,18 @@ int OnStep::Connect(std::string sPort)
         m_bIsConnected = true;
     else
         m_bIsConnected = false;
+/*
+	// reconnect at 56.7K
+	nErr = sendCommand("SB1#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
+	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
+	m_pSerx->flushTx();
+	m_pSerx->purgeTxRx();
+	m_pSerx->close();
+	if(m_pSerx->open(sPort.c_str(), 57600, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
+		m_bIsConnected = true;
+	else
+		m_bIsConnected = false;
+*/
 
     if(!m_bIsConnected)
         return ERR_COMMNOLINK;
@@ -102,6 +114,7 @@ int OnStep::Connect(std::string sPort)
         return nErr;
     }
     m_bSyncDone = false;
+	isHomingDone(m_bIsHomed);
 
     return SB_OK;
 }
@@ -160,41 +173,20 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
     if(cEndOfResponse == SHORT_RESPONSE && nExpectedResLen==0)
         return nErr;
     
-    while(true) {
-        nErr = readResponse(sResp, nTimeout, cEndOfResponse, nExpectedResLen);
-        if(nErr) {
-    #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
-            m_sLogFile << "["<<getTimeStamp()<<"]"<< " [sendCommand] ***** ERROR READING RESPONSE **** error = " << nErr << " , response : '" << sResp << "'" << std::endl;
-            m_sLogFile.flush();
-    #endif
-            return nErr;
-        }
-    #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
-        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [sendCommand] response : '" << sResp << "'" <<  std::endl;
-        m_sLogFile.flush();
-    #endif
-        // do we have a :MM0# in the response as this come async after a slew and get mixed with normal response.
-        if (sResp.find("#")!= -1) { // if there is a # in the response then we have 2 responses and need to extract the right one
-            parseFields(sResp, vFieldsData, '#');
-            if(vFieldsData.size() >1) {
-                if(vFieldsData[0].find("MM0") != -1 ) {
-                    sResp.assign(vFieldsData[1]);
-                }
-                else if(vFieldsData[1].find("MM0") != -1 ) {
-                    sResp.assign(vFieldsData[0]);
-                }
-                else { // some more weirdness, only take the last one.
-                    sResp.assign(vFieldsData[1]);
-                }
-            }
-        }
-        if(sResp.find("CHO") != -1 )    // another async response on homing
-            continue;
-        if(sResp.find("MM0") == -1 )
-            break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-    return nErr;
+	nErr = readResponse(sResp, nTimeout, cEndOfResponse, nExpectedResLen);
+	if(nErr) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [sendCommand] ***** ERROR READING RESPONSE **** error = " << nErr << " , response : '" << sResp << "'" << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
+	}
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [sendCommand] response : '" << sResp << "'" <<  std::endl;
+	m_sLogFile.flush();
+#endif
+
+	return nErr;
 }
 
 
@@ -330,10 +322,10 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
     }
 
     // get RA
-    nErr = sendCommand(":GR#", sResp);
+    nErr = sendCommand(":GRH#", sResp);
     if(nErr) {
         // retry
-        nErr = sendCommand(":GR#", sResp);
+        nErr = sendCommand(":GRH#", sResp);
         if(nErr) {
 #if defined PLUGIN_DEBUG
             m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getRaAndDec] :GR# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
@@ -370,10 +362,10 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
     // get DEC
-    nErr = sendCommand(":GD#", sResp);
+    nErr = sendCommand(":GDH#", sResp);
     if(nErr) {
         // retry
-        nErr = sendCommand(":GD#", sResp);
+        nErr = sendCommand(":GDH#", sResp);
         if(nErr) {
 #if defined PLUGIN_DEBUG
             m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getRaAndDec] :GD# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
@@ -511,7 +503,7 @@ int OnStep::setTarget(double dRa, double dDec)
     m_sLogFile.flush();
 #endif
 
-    // convert Ra value to HH:MM:SS.S before passing them to the OnStep
+    // convert Ra value to HH:MM:SS.SSSS before passing them to OnStep
     convertRaToHHMMSSt(dRa, sTemp);
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -656,6 +648,7 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 {
     int nErr = PLUGIN_OK;
     std::string sResp;
+	std::stringstream ssTmp;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] Called." << std::endl;
@@ -665,15 +658,15 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] dDecRateArcSecPerSec : " << std::fixed << std::setprecision(8) << dDecRateArcSecPerSec << std::endl;
     m_sLogFile.flush();
 #endif
-
-    if(!bSiderialTrackingOn && bIgnoreRates) { // stop tracking
+	// stop tracking
+    if(!bSiderialTrackingOn && bIgnoreRates) {
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
         m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] setting to stopped" << std::endl;
         m_sLogFile.flush();
 #endif
+		m_dRaRateArcSecPerSec = 15.0410681;
+		m_dDecRateArcSecPerSec = 0.0;
 		nErr = sendCommand(":Td#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // tracking off
-        m_dRaRateArcSecPerSec = 15.0410681;
-        m_dDecRateArcSecPerSec = 0.0;
     }
     // sidereal
     else if(bSiderialTrackingOn && bIgnoreRates) {
@@ -681,11 +674,10 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
         m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] setting to Sidereal" << std::endl;
         m_sLogFile.flush();
 #endif
+		m_dRaRateArcSecPerSec = 0.0;
+		m_dDecRateArcSecPerSec = 0.0;
         nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
-        std::this_thread::sleep_for(std::chrono::milliseconds(250)); // need to give time to the mount to process the command
-        nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
-        m_dRaRateArcSecPerSec = 0.0;
-        m_dDecRateArcSecPerSec = 0.0;
+		// nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
     }
     // Lunar
     else if (0.30 < dRaRateArcSecPerSec && dRaRateArcSecPerSec < 0.83 && -0.25 < dDecRateArcSecPerSec && dDecRateArcSecPerSec < 0.25) {
@@ -693,11 +685,10 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
         m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] setting to Lunar" << std::endl;
         m_sLogFile.flush();
 #endif
+		m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
+		m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
         nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
-        std::this_thread::sleep_for(std::chrono::milliseconds(250)); // need to give time to the mount to process the command
-        nErr = sendCommand(":TL#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Lunar rate
-        m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
-        m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
+        // nErr = sendCommand(":TL#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Lunar rate
     }
     // solar
     else if (0.037 < dRaRateArcSecPerSec && dRaRateArcSecPerSec < 0.043 && -0.017 < dDecRateArcSecPerSec && dDecRateArcSecPerSec < 0.017) {
@@ -705,11 +696,10 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
         m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] setting to Solar" << std::endl;
         m_sLogFile.flush();
 #endif
+		m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
+		m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
         nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
-        std::this_thread::sleep_for(std::chrono::milliseconds(250)); // need to give time to the mount to process the command
-        nErr = sendCommand(":TS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Solar rate
-        m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
-        m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
+        // nErr = sendCommand(":TS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Solar rate
     }
     // default to sidereal
     else {
@@ -717,16 +707,21 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
         m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] default to sidereal" << std::endl;
         m_sLogFile.flush();
 #endif
-        nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
-        std::this_thread::sleep_for(std::chrono::milliseconds(250)); // need to give time to the mount to process the command
-        nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
-        m_dRaRateArcSecPerSec = 0.0;
-        m_dDecRateArcSecPerSec = 0.0;
+		m_dRaRateArcSecPerSec = 0.0;
+		m_dDecRateArcSecPerSec = 0.0;
+		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
+		// nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
     }
+
+	ssTmp << ":SXTR," << std::fixed << std::setprecision(8) << (m_dRaRateArcSecPerSec/TSX_ARCSEC_SEC) * 15.0 << "#";
+	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // set Ra rate
+	std::stringstream().swap(ssTmp);
+	ssTmp << ":SXTD," << std::fixed << std::setprecision(8) << (m_dDecRateArcSecPerSec/TSX_ARCSEC_SEC) * 15.0 << "#";
+	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // set Dec rate
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     nErr = sendCommand(":GT#", sResp);
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] check current traking value : " << sResp << std::endl;
+    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setTrackingRates] check current tracking value : " << sResp << std::endl;
     m_sLogFile.flush();
 #endif
 
@@ -744,7 +739,6 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] Called." << std::endl;
     m_sLogFile.flush();
 #endif
-
     isTrackingOn(bTrackingOn);
     if(!bTrackingOn) {
         dRaRateArcSecPerSec = 15.0410681; // Convention to say tracking is off - see TSX documentation
@@ -752,46 +746,43 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
         bSiderialTrackingOn = false;
         return nErr;
     }
-/*
-    nErr = sendCommand(":Ct?#", sResp);
+
+	nErr = sendCommand(":GXTR#", sResp);
     if(nErr) {
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] Error getting tracking rate, response : " << sResp << std::endl;
+        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] Error getting tracking rate for Ra, response : " << sResp << std::endl;
         m_sLogFile.flush();
 #endif
         return nErr;
     }
-    // this is a switch case .. in case we want to add specific things for each in the future
-    if(sResp.size() == 0)
-        return ERR_CMDFAILED;
+	dRaRateArcSecPerSec = (std::stod(sResp)/15.0)*TSX_ARCSEC_SEC;
 
-    switch(sResp.at(3)) {
-        case '0' :  // Sidereal
-            dRaRateArcSecPerSec = 0.0;
-            dDecRateArcSecPerSec = 0.0;
-            bSiderialTrackingOn = true;
-            break;
-        case '1' :  // Solar
-            dRaRateArcSecPerSec = m_dRaRateArcSecPerSec;
-            dDecRateArcSecPerSec = m_dDecRateArcSecPerSec;
-            bSiderialTrackingOn = false;
-            break;
-        case '2' :  // Lunar
-            dRaRateArcSecPerSec = m_dRaRateArcSecPerSec;
-            dDecRateArcSecPerSec = m_dDecRateArcSecPerSec;
-            bSiderialTrackingOn = false;
-            break;
-        case '3' :  //  Guide
-            dRaRateArcSecPerSec = m_dRaRateArcSecPerSec;
-            dDecRateArcSecPerSec = m_dDecRateArcSecPerSec;
-            bSiderialTrackingOn = false;
-            break;
-        default:
-            dRaRateArcSecPerSec = 15.0410681; // Convention to say tracking is off - see TSX documentation
-            dDecRateArcSecPerSec = 0;
-            bSiderialTrackingOn = false;
-            break;
-    }
+	nErr = sendCommand(":GXTD#", sResp);
+	if(nErr) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] Error getting tracking rate for Ra, response : " << sResp << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
+	}
+	dDecRateArcSecPerSec = (std::stod(sResp)/15.0)*TSX_ARCSEC_SEC;
+
+
+	if(fequal(dRaRateArcSecPerSec, 0.0) && fequal(dDecRateArcSecPerSec, 0.0)) {
+		dRaRateArcSecPerSec = 0.0;
+		dDecRateArcSecPerSec = 0.0;
+		bSiderialTrackingOn = true;
+	}
+	else if(fgt(dRaRateArcSecPerSec, 15.0) && fequal(dDecRateArcSecPerSec, 0.0)) {
+		dRaRateArcSecPerSec = 15.0410681; // Convention to say tracking is off - see TSX documentation
+		dDecRateArcSecPerSec = 0;
+		bSiderialTrackingOn = false;
+	}
+	else {
+		dRaRateArcSecPerSec = m_dRaRateArcSecPerSec;	// return the speed we set in TSX
+		dDecRateArcSecPerSec = m_dDecRateArcSecPerSec;	// same on Dec.
+		bSiderialTrackingOn = false;
+	}
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] bSiderialTrackingOn  : " << (bSiderialTrackingOn?"Yes":"No") << std::endl;
@@ -799,7 +790,6 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getTrackRates] dDecRateArcSecPerSec : " << std::fixed << std::setprecision(8) << dDecRateArcSecPerSec << std::endl;
     m_sLogFile.flush();
 #endif
-*/
     return nErr;
 }
 
@@ -1206,26 +1196,6 @@ int OnStep::isUnparkDone(bool &bComplete)
         return nErr;
     }
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] Checking if homing is done" << std::endl;
-    m_sLogFile.flush();
-#endif
-    nErr = isHomingDone(m_bIsHomed);
-    if(nErr) {
-#if defined PLUGIN_DEBUG
-        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] error " << nErr << std::endl;
-        m_sLogFile.flush();
-#endif
-        return nErr;
-    }
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] m_bIsHomed " << (m_bIsHomed?"Yes":"No") << std::endl;
-    m_sLogFile.flush();
-#endif
-
-    if(!m_bIsHomed)
-        return nErr;
-
     // unparking and homing is done, enable tracking a sidereal rate
     m_bUnparking = false;
     bComplete = true;
@@ -1236,12 +1206,6 @@ int OnStep::isUnparkDone(bool &bComplete)
     m_sLogFile.flush();
 #endif
 
-    // enabling tracking twice to bypass tracking prevention if Alt is at 0 or bellow. If parked at patk1 this is needed or tracking doesn't start
-
-    nErr = sendCommand(":CtA#", sResp); // unpark, tracking on
-    std::this_thread::sleep_for(std::chrono::milliseconds(50)); // need to give time to the mount to process the command
-    nErr = sendCommand(":CtA#", sResp); // unpark, tracking on
-    std::this_thread::sleep_for(std::chrono::milliseconds(50)); // need to give time to the mount to process the command
     setTrackingRates(true, true, 0.0, 0.0);
     std::this_thread::sleep_for(std::chrono::milliseconds(50)); // need to give time to the mount to process the command
 
@@ -1265,8 +1229,15 @@ int OnStep::homeMount()
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [homeMount] Called." << std::endl;
     m_sLogFile.flush();
 #endif
+	if(m_bIsHomed) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [homeMount] already homed." << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
+	}
 
-    nErr = sendCommand(":Ch#", sResp, 0);
+	nErr = sendCommand(":Ch#", sResp, 0);
     if(nErr) {
 #if defined PLUGIN_DEBUG
         m_sLogFile << "["<<getTimeStamp()<<"]"<< " [homeMount] error " << nErr << " , response :" << sResp << std::endl;
@@ -1281,7 +1252,7 @@ int OnStep::homeMount()
 int OnStep::isHomingDone(bool &bIsHomed)
 {
     int nErr = PLUGIN_OK;
-    std::string sResp;
+    std::string sStatus;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] Called." << std::endl;
@@ -1289,47 +1260,23 @@ int OnStep::isHomingDone(bool &bIsHomed)
 #endif
     bIsHomed = false;
 
-    nErr = sendCommand(":AH#", sResp);
-    if(nErr) {
+	nErr = getStatus(sStatus);
+	if(nErr) {
 #if defined PLUGIN_DEBUG
-        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] AH error " << nErr <<" , response : " << sResp << std::endl;
-        m_sLogFile.flush();
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] getStatus error " << nErr << " , response :" << sStatus << std::endl;
+		m_sLogFile.flush();
 #endif
-    }
+		return nErr;
+	}
 
-    if(sResp.size() >= 3 && sResp.at(3) == '0') {
-            bIsHomed = true;
-    }
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] bIsHomed : " << (bIsHomed?"Yes":"No") <<  std::endl;
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] m_bUnparking : " << (m_bUnparking?"Yes":"No") <<  std::endl;
-    m_sLogFile.flush();
-#endif
+	if(sStatus.find("H") != std::string::npos) {
+		m_bIsHomed = true;
+	}
+	else {
+		m_bIsHomed = false;
+	}
 
-    // check status
-    if (bIsHomed && m_bUnparking) {
-        nErr = sendCommand(":GH#", sResp);
-        if(nErr) {
-#if defined PLUGIN_DEBUG
-            m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] GH error " << nErr << ", response : " << sResp << std::endl;
-            m_sLogFile.flush();
-#endif
-        }
-        if(sResp.size() >= 3 && sResp.at(3) != 'O') {
-            if(m_nNbHomingTries == 0) {
-                m_nNbHomingTries++;
-                homeMount();
-            } else {
-                nErr = ERR_CMDFAILED;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-                m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isHomingDone] Homing failed twice " << std::endl;
-                m_sLogFile.flush();
-#endif
-            }
-            bIsHomed = false;
-        }
-    }
-
+	bIsHomed = m_bIsHomed;
     return nErr;
 }
 
@@ -1607,8 +1554,8 @@ int OnStep::setSiteData(double dLongitude, double dLatitute, double dTimeZone)
     m_sLogFile.flush();
 #endif
 
-    convertDecDegToDDMM(dLongitude, sLong);
-    convertDecDegToDDMM(dLatitute, sLat);
+	convertDecDegToDDMMSS(dLongitude, sLong);
+	convertDecDegToDDMMSS(dLatitute, sLat);
 
     m_pTsx->localDateTime(yy, mm, dd, h, min, sec, dst);
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -1765,29 +1712,31 @@ int OnStep::getInputVoltage(double &dVolts)
     return nErr;
 }
 
-void OnStep::convertDecDegToDDMM(double dDeg, std::string &sResult)
+void OnStep::convertDecDegToDDMMSS(double dDeg, std::string &sResult)
 {
-    int DD, MM;
-    double mm;
-    double dNewDeg;
-    std::stringstream ssTmp;
-    char cSign;
+	int DD, MM, SS;
+	double mm, ss;
+	double dNewDeg;
+	std::stringstream ssTmp;
+	char cSign;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [convertDecDegToDDMMSS] Called." << std::endl;
-    m_sLogFile.flush();
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [convertDecDegToDDMMSS] Called." << std::endl;
+	m_sLogFile.flush();
 #endif
 
-    sResult.clear();
-    // convert dDeg decimal value to sDD:MM
-    dNewDeg = std::fabs(dDeg);
-    cSign = dDeg>=0?'+':'-';
-    DD = int(dNewDeg);
-    mm = dNewDeg - DD;
-    MM = int(mm*60);
+	sResult.clear();
+	// convert dDeg decimal value to sDD:MM:SS
+	dNewDeg = std::fabs(dDeg);
+	cSign = dDeg>=0?'+':'-';
+	DD = int(dNewDeg);
+	mm = dNewDeg - DD;
+	MM = int(mm*60);
+	ss = (mm*60) - MM;
+	SS = int(std::round(ss*60));
 
-	ssTmp << cSign << DD << "*" << std::setfill('0') << std::setw(2) << MM;
-    sResult.assign(ssTmp.str());
+	ssTmp << cSign << DD << "*" << std::setfill('0') << std::setw(2) << MM << "'" << std::setfill('0') << std::setw(2) << SS;
+	sResult.assign(ssTmp.str());
 }
 
 void OnStep::convertDecAzToDDMMSSs(double dDeg, std::string &sResult)
@@ -1803,7 +1752,7 @@ void OnStep::convertDecAzToDDMMSSs(double dDeg, std::string &sResult)
 #endif
 
     sResult.clear();
-    // convert dDeg decimal value to DDD*MM:SS.S 
+    // convert dDeg decimal value to DDD*MM:SS.SSS
     dNewDeg = std::fabs(dDeg);
     DD = int(dNewDeg);
     mm = dNewDeg - DD;
@@ -1811,7 +1760,7 @@ void OnStep::convertDecAzToDDMMSSs(double dDeg, std::string &sResult)
     ss = (mm*60) - MM;
     SS = ss*60;
 
-    ssTmp << std::setfill('0') << std::setw(3) << DD << "*" << std::setfill('0') << std::setw(2) << MM << "'" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(1) << SS;
+    ssTmp << std::setfill('0') << std::setw(3) << DD << "*" << std::setfill('0') << std::setw(2) << MM << "'" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(3) << SS;
     sResult.assign(ssTmp.str());
 }
 
@@ -1829,7 +1778,7 @@ void OnStep::convertDecDegToDDMMSS_ForDecl(double dDeg, std::string &sResult)
 #endif
 
     sResult.clear();
-    // convert dDeg decimal value to sDD*MM:SS.S
+    // convert dDeg decimal value to sDD*MM:SS.SSS
     dNewDeg = std::fabs(dDeg);
     cSign = dDeg>=0?'+':'-';
     DD = int(dNewDeg);
@@ -1838,7 +1787,7 @@ void OnStep::convertDecDegToDDMMSS_ForDecl(double dDeg, std::string &sResult)
     ss = (mm*60) - MM;
     SS = ss*60;
 
-    ssTmp << cSign << std::setfill('0') << std::setw(2) << DD << "*" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(1)<< SS;
+    ssTmp << cSign << std::setfill('0') << std::setw(2) << DD << "*" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(3)<< SS;
     sResult.assign(ssTmp.str());
 }
 
@@ -1920,7 +1869,7 @@ void OnStep::convertRaToHHMMSSt(double dRa, std::string &sResult)
     mm = (hh*60) - MM;
     SSt = mm * 60;
 
-    ssTmp << std::setfill('0') << std::setw(2) << HH << ":" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(1) << SSt;
+    ssTmp << std::setfill('0') << std::setw(2) << HH << ":" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(4) << std::fixed << std::setprecision(4) << SSt;
     sResult.assign(ssTmp.str());
 }
 
@@ -2035,59 +1984,9 @@ int OnStep::IsBeyondThePole(bool &bBeyondPole)
         return nErr;
     }
 
-    nErr = getDecAxisAlignmentOffset(dOffset);
-    if(nErr) {
-        return PLUGIN_OK; // might not be supported by this firmware.
-    }
+	// :Gm# get meridian pier side
 
-    // get Side of pier
-    nErr = sendCommand(":CY#", sResp);
-    if(nErr) {
-        if(nErr == COMMAND_TIMEOUT) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
-            nErr = sendCommand(":CY#", sResp);
-        }
-        if(nErr) {
-#if defined PLUGIN_DEBUG
-            m_sLogFile << "["<<getTimeStamp()<<"]"<< " [IsBeyondThePole] :CY# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
-            m_sLogFile.flush();
-#endif
-            return PLUGIN_OK; // might not be supported by this firmware.
-        }
-    }
-
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [IsBeyondThePole]  sResp : " << sResp << std::endl;
-    m_sLogFile.flush();
-#endif
-    if(sResp.size() == 0)
-        return ERR_CMDFAILED;
-
-    parseFields(sResp, vFieldsData, '/');
-    if(vFieldsData.size() >1) {
-        try {
-            dDecAxis = std::stoi(vFieldsData[0]);
-            dDecAxisForSideOfPier = dDecAxis - dOffset;
-        }
-        catch(const std::exception& e) {
-#if defined PLUGIN_DEBUG
-            m_sLogFile << "["<<getTimeStamp()<<"]"<< " [IsBeyondThePole] conversion exception : " << e.what() << std::endl;
-            m_sLogFile.flush();
-#endif
-            return PLUGIN_OK; // might not be supported by this firmware.
-        }
-    }
-
-    // “beyond the pole” =  “telescope west of the pier”,
-    if (dDecAxisForSideOfPier > 90)
-        bBeyondPole = true;
-
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [IsBeyondThePole]  bBeyondPole : " << (bBeyondPole?"Yes":"No") << std::endl;
-    m_sLogFile.flush();
-#endif
-
-    return nErr;
+	return nErr;
 }
 
 void OnStep::setStopTrackingOnDisconnect(bool bStop)
