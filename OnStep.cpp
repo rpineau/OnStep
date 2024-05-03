@@ -935,60 +935,58 @@ int OnStep::slewTargetRA_DecEpochNow()
         return ERR_CMDFAILED;
     }
     if(sResp.size()) {
-        if(sResp.at(0) == '0') {
-            nRespCode = std::stoi(sResp);
-            switch(nRespCode) {
-                case 0:
-                    // all good
-                    break;
+		nRespCode = std::stoi(sResp);
+		switch(nRespCode) {
+			case 0:
+				// all good
+				break;
 
-                case 1:
+			case 1:
 #if defined PLUGIN_DEBUG
-                m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error below horizon."  << std::endl;
-                m_sLogFile.flush();
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error below horizon."  << std::endl;
+			m_sLogFile.flush();
 #endif
-                    nErr = ERR_MKS_SLEW_PAST_LIMIT;
-                    break;
+				nErr = ERR_LX200DESTBELOWHORIZ;
+				break;
 
-                case 2:
+			case 2:
 #if defined PLUGIN_DEBUG
-                    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error no object."  << std::endl;
-                    m_sLogFile.flush();
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error no object."  << std::endl;
+				m_sLogFile.flush();
 #endif
-                    nErr = ERR_MKS_SLEW_PAST_LIMIT;
-                    break;
+				nErr = ERR_NOOBJECTSELECTED;
+				break;
 
-                case 4:
+			case 4:
 #if defined PLUGIN_DEBUG
-                    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error position unreachable."  << std::endl;
-                    m_sLogFile.flush();
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error position unreachable."  << std::endl;
+				m_sLogFile.flush();
 #endif
-                    nErr = ERR_MKS_SLEW_PAST_LIMIT;
-                    break;
+				nErr = ERR_GEMINI_POSITION_UNREACHABLE;
+				break;
 
-                case 5:
+			case 5:
 #if defined PLUGIN_DEBUG
-                    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error not aligned."  << std::endl;
-                    m_sLogFile.flush();
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error not aligned."  << std::endl;
+				m_sLogFile.flush();
 #endif
-                    nErr = ERR_MKS_SLEW_PAST_LIMIT;
-                    break;
+				nErr = ERR_GEMINI_NOT_ALIGNED;
+				break;
 
-                case 6:
+			case 6:
 #if defined PLUGIN_DEBUG
-                    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error outside limits."  << std::endl;
-                    m_sLogFile.flush();
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error outside limits."  << std::endl;
+				m_sLogFile.flush();
 #endif
-                    nErr = ERR_MKS_SLEW_PAST_LIMIT;
-                    break;
+				nErr = ERR_LX200OUTSIDELIMIT;
+				break;
 
-                default:
-                    nErr = ERR_MKS_SLEW_PAST_LIMIT;
-                    break;
+			default:
+				nErr = ERR_MKS_SLEW_PAST_LIMIT;
+				break;
 
-            }
-        }
-    }
+		}
+	}
     return nErr;
 }
 
