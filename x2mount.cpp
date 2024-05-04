@@ -594,14 +594,9 @@ int X2Mount::isCompletePark(bool& bComplete) const
     X2Mount* pMe = (X2Mount*)this;
     X2MutexLocker ml(pMe ->GetMutex());
 
-    nErr =  pMe->mOnStep.isSlewToComplete(bComplete);
+    nErr =  pMe->mOnStep.isParkingComplete(bComplete);
     if(nErr)
         return nErr;
-
-    if(bComplete) {
-        // stop tracking
-        nErr = pMe->setTrackingRates( false, true, 0.0, 0.0);
-    }
 
     return nErr;
 }

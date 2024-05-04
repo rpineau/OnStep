@@ -24,10 +24,10 @@ OnStep::OnStep()
     m_bHomeOnUnpark = false;
 
     m_bSyncDone = false;
-    m_bIsAtHomed = false;
+    m_bIsAtHome = false;
     m_bIsParked = true;
-    m_bParking = false;
-    m_bSlewing = false;
+	m_bIsParking = false;
+	m_bIsSlewing = false;
     m_bStopTrackingOnDisconnect = true;
     
     m_commandDelayTimer.Reset();
@@ -114,7 +114,7 @@ int OnStep::Connect(std::string sPort)
         return nErr;
     }
     m_bSyncDone = false;
-	isHomingDone(m_bIsAtHomed);
+	isHomingDone(m_bIsAtHome);
 
     return SB_OK;
 }
@@ -293,58 +293,96 @@ int OnStep::getFirmwareVersion(std::string &sFirmware)
 
 int OnStep::getStatus()
 {
-    int nErr = PLUGIN_OK;
-    std::string sStatus;
-
+	int nErr = PLUGIN_OK;
+	std::string sStatus;
+	int nIndex = 0;
+	unsigned long nSize;
 	nErr = sendCommand(":GU#", sStatus);
-    if(nErr) {
+	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] ERROR : " << nErr << " , sResp : " << sStatus << std::endl;
 		m_sLogFile.flush();
 #endif
-    }
+	}
+	
+	// setting some default
+	m_nTrackRate = SIDEREAL;
+	m_bIsTracking = true;
+	m_bIsSlewing = true;
+	m_bIsParked = false;
+	m_bIsParking = false;
+	m_bIsHoming = false;
+	m_bIsAtHome = false;
 
-	if(sStatus.find("P") != std::string::npos)
-		m_bIsParked = true;
+	nSize = sStatus.size();
+#if defined PLUGIN_DEBUG
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] nSize : " << nSize << std::endl;
+	m_sLogFile.flush();
+#endif
+	if(nSize) {
+		while(nIndex < nSize) {
+#if defined PLUGIN_DEBUG
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] nIndex : "<< nIndex << std::endl;
+			m_sLogFile.flush();
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] sStatus.at(" << nIndex << ") : " << sStatus.at(nIndex) << std::endl;
+			m_sLogFile.flush();
+#endif
 
-	if(sStatus.find("p") != std::string::npos)
-		m_bIsParked = false;
-
-	if(sStatus.find("H") != std::string::npos)
-		m_bIsAtHomed = true;
-	else
-		m_bIsAtHomed = false;
-
-	if(sStatus.find("N") != std::string::npos && sStatus.find("n") != std::string::npos)
-		m_bIsTracking = false; // mount is idle
-
-	if(sStatus.find("N") == std::string::npos && sStatus.find("n") != std::string::npos) {
-		if(sStatus.find("I") != std::string::npos)
-			m_bIsParked = true;
-		else
-			m_bIsSlewing = true;
+			switch(sStatus.at(nIndex++)) {
+				case 'n':
+					m_bIsTracking = false;
+					continue;
+				case 'N':
+					m_bIsSlewing = false;
+					continue;
+				case 'p':
+					m_bIsParked = false;
+					continue;
+				case 'P':
+					m_bIsParked = true;
+					continue;
+				case 'I':
+					m_bIsParking = true;
+					continue;
+				case 'h':
+					m_bIsHoming = true;
+					continue;
+				case 'H':
+					m_bIsAtHome = true;
+					continue;
+				case '(':
+					m_nTrackRate = LUNAR;
+					continue;
+				case 'O':
+					m_nTrackRate = SOLAR;
+					continue;
+				case 'k':
+					m_nTrackRate = KING;
+					continue;
+				case 'T':
+					m_nSideOfPier = EAST;
+					continue;
+				case 'W':
+					m_nSideOfPier = EAST;
+					continue;
+				default:
+					continue;
+			}
+		}
 	}
 
-	if(sStatus.find("N") != std::string::npos && sStatus.find("n") == std::string::npos)
-		m_bIsTracking  = true;
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsTracking : " << (m_bIsTracking?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsSlewing  : " << (m_bIsSlewing?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsParked 	 : " << (m_bIsParked?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsParking  : " << (m_bIsParking?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsAtHome   : " << (m_bIsAtHome?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsHoming   : " << (m_bIsAtHome?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_nTrackRate  : " << m_nTrackRate << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_nSideOfPier : " << m_nSideOfPier << std::endl;
+	m_sLogFile.flush();
+#endif
 
-	if(sStatus.find("N") != std::string::npos && sStatus.find("n") != std::string::npos)
-		m_bIsSlewing  = true;
-
-	if(m_bIsTracking) {
-		m_nTrackRate = SIDEREAL;
-		if(sStatus.find("(") != std::string::npos)
-			m_nTrackRate = LUNAR;
-		else if(sStatus.find("O") != std::string::npos)
-			m_nTrackRate = SOLAR;
-		else if(sStatus.find("k") != std::string::npos)
-			m_nTrackRate = KING;
-	}
-
-	if(sStatus.find("W") != std::string::npos)
-		m_nSideOfPier = WEST;
-	else if(sStatus.find("T") != std::string::npos)
-		m_nSideOfPier = EAST;
 
     return nErr;
 }
@@ -876,6 +914,11 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 
 	dHourAngle = (dEast>dWest)?dWest:dEast; // we take the smallest one as TSX only has 1 value
 
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getflipHourAngle] dHourAngle  : " << std::fixed << std::setprecision(8) << dHourAngle << std::endl;
+	m_sLogFile.flush();
+#endif
+
 	return nErr;
 }
 
@@ -908,7 +951,7 @@ int OnStep::startSlewTo(double dRa, double dDec)
 #endif
 
     }
-    m_bSlewing = true;
+	m_bIsSlewing = true;
 
     return nErr;
 }
@@ -1120,33 +1163,28 @@ int OnStep::isSlewToComplete(bool &bComplete)
 #endif
 
     bComplete = false;
-    if(!m_bSlewing ) {
+    if(!m_bIsSlewing ) {
         bComplete = true;
         return nErr;
     }
 
-    nErr = sendCommand(":GU#", sResp);
+	nErr = getStatus();
     if(nErr) {
 #if defined PLUGIN_DEBUG
-        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isSlewToComplete] error " << nErr <<" response : " << sResp << std::endl;
+        m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isSlewToComplete] getStatus error " << nErr << std::endl;
         m_sLogFile.flush();
 #endif
         return nErr;
     }
+	
+	bComplete = m_bIsSlewing?false:true;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isSlewToComplete] sResp : " << sResp << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isSlewToComplete] m_bIsSlewing : " << (m_bIsSlewing?"Yes":"No") << std::endl;
+    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isSlewToComplete] bComplete    : " << (bComplete?"Yes":"No") << std::endl;
     m_sLogFile.flush();
 #endif
 
-    if(sResp.at(0)=='S') {
-        bComplete = true;
-        m_bSlewing = false;
-        if(m_bParking) {
-            m_bParking = false;
-            m_bIsParked = true;
-        }
-    }
     return nErr;
 }
 
@@ -1159,16 +1197,39 @@ int OnStep::gotoPark(double dAlt, double dAz)
     m_sLogFile.flush();
 #endif
 
-    m_bParking = false;
+	m_bIsParking = false;
 
     nErr = sendCommand(":hP#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
     if(!nErr)
-        m_bParking = true;
+		m_bIsParking = true;
     return nErr;
 }
 
+int OnStep::isParkingComplete(bool &bComplete)
+{
+	int nErr = PLUGIN_OK;
+	
+	nErr = getStatus();
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isParkingComplete] getStatus error " << nErr << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
+	}
+
+	bComplete = m_bIsParking?false:true;
+
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isParkingComplete] m_bIsParking : " << (m_bIsParking?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isParkingComplete] bComplete    : " << (bComplete?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+#endif
+
+	return nErr;
+}
 
 int OnStep::getAtPark(bool &bParked)
 {
@@ -1253,7 +1314,7 @@ int OnStep::isUnparkDone(bool &bComplete)
 #endif
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] m_bIsAtHomed   " << (m_bIsAtHomed?"Yes":"No") << std::endl;
+    m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] m_bIsAtHome   " << (m_bIsAtHome?"Yes":"No") << std::endl;
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isUnparkDone] bComplete " << (bComplete?"Yes":"No") << std::endl;
     m_sLogFile.flush();
 #endif
@@ -1281,7 +1342,7 @@ int OnStep::homeMount()
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [homeMount] Called." << std::endl;
     m_sLogFile.flush();
 #endif
-	if(m_bIsAtHomed) {
+	if(m_bIsAtHome) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [homeMount] already homed." << std::endl;
 		m_sLogFile.flush();
@@ -1320,7 +1381,7 @@ int OnStep::isHomingDone(bool &bIsHomed)
 		return nErr;
 	}
 
-	bIsHomed = m_bIsAtHomed;
+	bIsHomed = m_bIsAtHome;
     return nErr;
 }
 

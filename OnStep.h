@@ -84,6 +84,7 @@ public:
     int getRateName(int nZeroBasedIndex, std::string &sOut);
     
     int gotoPark(double dAlt, double dAz);
+	int isParkingComplete(bool &bComplete);
     int getAtPark(bool &bParked);
     int unPark();
 	int isUnparkDone(bool &bcomplete);
@@ -128,15 +129,14 @@ private:
 
     bool    m_bSyncLocationDataConnect;
     bool    m_bHomeOnUnpark;
-    bool    m_bParking;
+	bool	m_bIsHoming;
+	bool    m_bIsAtHome;
+	bool    m_bIsParked;
 	bool	m_bIsTracking;
 	bool	m_bIsParking;
 	bool	m_bIsSlewing;
     int     m_nNbHomingTries;
     bool    m_bSyncDone;
-    bool    m_bIsAtHomed;
-    bool    m_bIsParked;
-    bool    m_bSlewing;
     bool    m_bStopTrackingOnDisconnect;
 	int		m_nTrackRate;
 	int		m_nSideOfPier;
