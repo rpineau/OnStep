@@ -28,19 +28,17 @@ OnStep::OnStep()
 	m_bIsParked = true;
 	m_bIsParking = false;
 	m_bIsSlewing = false;
-	m_bStopTrackingOnDisconnect = true;
+    m_bStopTrackingOnDisconnect = true;
+    
+    m_commandDelayTimer.Reset();
 
-	m_commandDelayTimer.Reset();
 
 #ifdef PLUGIN_DEBUG
-#if defined(SB_WIN_BUILD)
+#if defined(WIN32)
 	m_sLogfilePath = getenv("HOMEDRIVE");
 	m_sLogfilePath += getenv("HOMEPATH");
 	m_sLogfilePath += "\\OnStepLog.txt";
-#elif defined(SB_LINUX_BUILD)
-	m_sLogfilePath = getenv("HOME");
-	m_sLogfilePath += "/OnStepLog.txt";
-#elif defined(SB_MAC_BUILD)
+#else
 	m_sLogfilePath = getenv("HOME");
 	m_sLogfilePath += "/OnStepLog.txt";
 #endif
@@ -316,18 +314,11 @@ int OnStep::getStatus()
 
 	nSize = sStatus.size();
 #if defined PLUGIN_DEBUG
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] nSize : " << nSize << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] sStatus (nSize) : " << sStatus << " (" << nSize << ")"<<std::endl;
 	m_sLogFile.flush();
 #endif
 	if(nSize) {
 		while(nIndex < nSize) {
-#if defined PLUGIN_DEBUG
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] nIndex : "<< nIndex << std::endl;
-			m_sLogFile.flush();
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] sStatus.at(" << nIndex << ") : " << sStatus.at(nIndex) << std::endl;
-			m_sLogFile.flush();
-#endif
-
 			switch(sStatus.at(nIndex++)) {
 				case 'n':
 					m_bIsTracking = false;

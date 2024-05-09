@@ -40,37 +40,22 @@
 
 #define MAX_PORT_NAME_SIZE 120
 
-
-// #define OnStep_X2_DEBUG    // Define this to have log files
-
-#if defined(SB_WIN_BUILD)
-#define DEF_PORT_NAME					"COM1"
-#elif defined(SB_LINUX_BUILD)
-#define DEF_PORT_NAME					"/dev/mount"
-#elif defined (SB_MAC_BUILD)
-#define DEF_PORT_NAME					"/dev/cu.KeySerial1"
-#endif
+#define DEF_PORT_NAME		"No port found"
 
 
-/*!
- \brief The X2Mount example.
 
- \ingroup Example
-
- Use this example to write an X2Mount driver.
- */
-class X2Mount : public MountDriverInterface
-,public SyncMountInterface
-,public SlewToInterface
-,public AsymmetricalEquatorialInterface
-,public OpenLoopMoveInterface
-,public TrackingRatesInterface
-,public ParkInterface
-,public UnparkInterface
-,public ModalSettingsDialogInterface
-,public X2GUIEventInterface
-,public SerialPortParams2Interface
-,public DriverSlewsToParkPositionInterface
+class __attribute__((weak,visibility("default"))) X2Mount : public MountDriverInterface
+						,public SyncMountInterface
+						,public SlewToInterface
+                        ,public AsymmetricalEquatorialInterface
+						,public OpenLoopMoveInterface
+						,public TrackingRatesInterface
+						,public ParkInterface
+						,public UnparkInterface
+						,public ModalSettingsDialogInterface
+                        ,public X2GUIEventInterface
+                        ,public SerialPortParams2Interface
+                        ,public DriverSlewsToParkPositionInterface
 {
 public:
 	/*!Standard X2 constructor*/
