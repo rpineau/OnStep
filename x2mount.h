@@ -36,6 +36,7 @@
 #define CHILD_KEY_SYNC_TIME "SyncTime"
 #define CHILD_KEY_PARK_POS  "ParkPos"
 #define CHILD_KEY_STOP_TRK  "StopTrackingOnDisconnect"
+#define CHILD_KEY_SLEW_RATE "SlewRate"
 
 #define MAX_PORT_NAME_SIZE 120
 
@@ -52,49 +53,49 @@
 
 
 /*!
-\brief The X2Mount example.
+ \brief The X2Mount example.
 
-\ingroup Example
+ \ingroup Example
 
-Use this example to write an X2Mount driver.
-*/
-class X2Mount : public MountDriverInterface 
-						,public SyncMountInterface
-						,public SlewToInterface
-                        ,public AsymmetricalEquatorialInterface
-						,public OpenLoopMoveInterface
-						,public TrackingRatesInterface
-						,public ParkInterface
-						,public UnparkInterface
-						,public ModalSettingsDialogInterface
-                        ,public X2GUIEventInterface
-                        ,public SerialPortParams2Interface
-                        ,public DriverSlewsToParkPositionInterface
+ Use this example to write an X2Mount driver.
+ */
+class X2Mount : public MountDriverInterface
+,public SyncMountInterface
+,public SlewToInterface
+,public AsymmetricalEquatorialInterface
+,public OpenLoopMoveInterface
+,public TrackingRatesInterface
+,public ParkInterface
+,public UnparkInterface
+,public ModalSettingsDialogInterface
+,public X2GUIEventInterface
+,public SerialPortParams2Interface
+,public DriverSlewsToParkPositionInterface
 {
 public:
 	/*!Standard X2 constructor*/
 	X2Mount(const char* pszDriverSelection,
-				const int& nInstanceIndex,
-				SerXInterface					* pSerX, 
-				TheSkyXFacadeForDriversInterface	* pTheSkyX, 
-				SleeperInterface					* pSleeper,
-				BasicIniUtilInterface			* pIniUtil,
-				LoggerInterface					* pLogger,
-				MutexInterface					* pIOMutex,
-				TickCountInterface				* pTickCount);
+			const int& nInstanceIndex,
+			SerXInterface					* pSerX,
+			TheSkyXFacadeForDriversInterface	* pTheSkyX,
+			SleeperInterface					* pSleeper,
+			BasicIniUtilInterface			* pIniUtil,
+			LoggerInterface					* pLogger,
+			MutexInterface					* pIOMutex,
+			TickCountInterface				* pTickCount);
 
 	~X2Mount();
 
-// Operations
+	// Operations
 public:
-	
+
 	/*!\name DriverRootInterface Implementation
 	 See DriverRootInterface.*/
 	//@{
 	virtual DeviceType							deviceType(void)							  {return DriverRootInterface::DT_MOUNT;}
 	virtual int									queryAbstraction(const char* pszName, void** ppVal) ;
 	//@}
-	
+
 	/* See LinkInterface.*/
 	//@{
 	virtual int									establishLink(void)						;
@@ -102,14 +103,14 @@ public:
 	virtual bool								isLinked(void) const					;
 	virtual bool								isEstablishLinkAbortable(void) const	;
 	//@}
-	
+
 	/*!\name DriverInfoInterface Implementation
 	 See DriverInfoInterface.*/
 	//@{
 	virtual void								driverInfoDetailedInfo(BasicStringInterface& str) const;
 	virtual double								driverInfoVersion(void) const				;
 	//@}
-	
+
 	/*!\name HardwareInfoInterface Implementation
 	 See HardwareInfoInterface.*/
 	//@{
@@ -119,30 +120,30 @@ public:
 	virtual void deviceInfoFirmwareVersion(BasicStringInterface& str)				;
 	virtual void deviceInfoModel(BasicStringInterface& str)						;
 	//@}
-	
+
 	virtual int									raDec(double& ra, double& dec, const bool& bCached = false)					;
 	virtual int									abort(void)																	;
-	
+
 	//Optional interfaces, uncomment and implement as required.
-	
+
 	//SyncMountInterface
 	virtual int syncMount(const double& ra, const double& dec)									;
 	virtual bool isSynced()																		;
-	
+
 	//SlewToInterface
 	virtual int								startSlewTo(const double& dRa, const double& dDec)	;
 	virtual int								isCompleteSlewTo(bool& bComplete) const				;
 	virtual int								endSlewTo(void)										;
-	
-	//AsymmetricalEquatorialInterface
-    virtual bool knowsBeyondThePole();
-	virtual int beyondThePole(bool& bYes);
-    virtual double flipHourAngle();
-    virtual int gemLimits(double& dHoursEast, double& dHoursWest);
 
-    // SymmetricalEquatorialInterface
-    virtual MountTypeInterface::Type mountType();
-	
+	//AsymmetricalEquatorialInterface
+	virtual bool knowsBeyondThePole();
+	virtual int beyondThePole(bool& bYes);
+	virtual double flipHourAngle();
+	virtual int gemLimits(double& dHoursEast, double& dHoursWest);
+
+	// SymmetricalEquatorialInterface
+	virtual MountTypeInterface::Type mountType();
+
 	//OpenLoopMoveInterface
 	virtual int								startOpenLoopMove(const MountDriverInterface::MoveDir& Dir, const int& nRateIndex);
 	virtual int								endOpenLoopMove(void);
@@ -150,15 +151,15 @@ public:
 	virtual int								rateCountOpenLoopMove(void) const;
 	virtual int								rateNameFromIndexOpenLoopMove(const int& nZeroBasedIndex, char* pszOut, const int& nOutMaxSize);
 	virtual int								rateIndexOpenLoopMove(void);
-	
+
 	//NeedsRefractionInterface
 	virtual bool							needsRefactionAdjustments(void);
 
-    //TrackingRatesInterface
+	//TrackingRatesInterface
 	virtual int setTrackingRates( const bool& bSiderialTrackingOn, const bool& bIgnoreRates, const double& dRaRateArcSecPerSec, const double& dDecRateArcSecPerSec);
 	virtual int trackingRates( bool& bSiderialTrackingOn, double& dRaRateArcSecPerSec, double& dDecRateArcSecPerSec);
-    virtual int siderealTrackingOn();
-    virtual int trackingOff();
+	virtual int siderealTrackingOn();
+	virtual int trackingOff();
 
 	/* Parking Interface */
 	virtual bool							isParked(void);
@@ -170,24 +171,24 @@ public:
 	int								startUnpark(void);
 	int								isCompleteUnpark(bool& bComplete) const;
 	int								endUnpark(void);
-	
-    //SerialPortParams2Interface
-    virtual void            portName(BasicStringInterface& str) const            ;
-    virtual void            setPortName(const char* szPort)                        ;
-    virtual unsigned int    baudRate() const            {return 115200;};
-    virtual void            setBaudRate(unsigned int)    {};
-    virtual bool            isBaudRateFixed() const        {return true;}
 
-    virtual SerXInterface::Parity    parity() const                {return SerXInterface::B_NOPARITY;}
-    virtual void                    setParity(const SerXInterface::Parity& parity){};
-    virtual bool                    isParityFixed() const        {return true;}
+	//SerialPortParams2Interface
+	virtual void            portName(BasicStringInterface& str) const            ;
+	virtual void            setPortName(const char* szPort)                        ;
+	virtual unsigned int    baudRate() const            {return 115200;};
+	virtual void            setBaudRate(unsigned int)    {};
+	virtual bool            isBaudRateFixed() const        {return true;}
+
+	virtual SerXInterface::Parity    parity() const                {return SerXInterface::B_NOPARITY;}
+	virtual void                    setParity(const SerXInterface::Parity& parity){};
+	virtual bool                    isParityFixed() const        {return true;}
 
 	// GUI Interface
 	virtual int initModalSettingsDialog(void) { return 0; }
 	virtual int execModalSettingsDialog(void);
 	void uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent); // Process a UI event
-	
-	
+
+
 	// Implementation
 private:
 	// Sky Interfaces
@@ -198,7 +199,7 @@ private:
 	LoggerInterface							*GetLogger() {return m_pLogger; }
 	MutexInterface							*GetMutex()  {return m_pIOMutex;}
 	TickCountInterface						*GetTickCountInterface() {return m_pTickCount;}
-	
+
 	// Variables to store Sky X interfaces
 	int m_nPrivateMulitInstanceIndex;
 	SerXInterface*							m_pSerX;
@@ -208,25 +209,25 @@ private:
 	LoggerInterface*						m_pLogger;
 	MutexInterface*							m_pIOMutex;
 	TickCountInterface*						m_pTickCount;
-	
-	// Variables for OnStep
-	OnStep mOnStep;
 
-    bool m_bLinked;
+	// Variables for OnStep
+	OnStep m_OnStep;
+
+	bool m_bLinked;
 
 	bool m_bSynced;
 	bool m_bParked;
 
-    int m_nParkingPosition;
-    bool m_bSyncOnConnect;
+	int m_nParkingPosition;
+	bool m_bSyncOnConnect;
+	int m_nSlewRateIndex;
+	bool m_bStopTrackingOnDisconnect;
 
-    bool m_bStopTrackingOnDisconnect;
-    
-    char m_PortName[MAX_PORT_NAME_SIZE];
-	
+	char m_PortName[MAX_PORT_NAME_SIZE];
+
 	int m_CurrentRateIndex;
 
-    void getPortName(std::string &sPortName) const;
+	void getPortName(std::string &sPortName) const;
 
 };
 
