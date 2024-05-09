@@ -42,4 +42,3 @@ extern "C" PlugInExport int sbPlugInFactory2(	const char* pszDisplayName,
 
 	return 0;
 }
-

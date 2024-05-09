@@ -10,7 +10,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 				 MutexInterface					* pIOMutex,
 				 TickCountInterface				* pTickCount)
 {
-	
+
 	m_nPrivateMulitInstanceIndex	= nInstanceIndex;
 	m_pSerX							= pSerX;
 	m_pTheSkyXForMounts				= pTheSkyX;
@@ -19,20 +19,20 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_pLogger						= pLogger;
 	m_pIOMutex						= pIOMutex;
 	m_pTickCount					= pTickCount;
-	
+
 	m_bSynced = false;
 	m_bParked = false;
 	m_bLinked = false;
 	m_bSyncOnConnect = false;
 	m_bStopTrackingOnDisconnect = false;
-	
+
 	m_nParkingPosition = 1;
-	
+
 	m_OnStep.setSerxPointer(m_pSerX);
 	m_OnStep.setTSX(m_pTheSkyXForMounts);
-	
+
 	m_CurrentRateIndex = 0;
-	
+
 	// Read the current stored values for the settings
 	if (m_pIniUtil)
 	{
@@ -41,7 +41,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_nSlewRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, 6);
 		m_OnStep.setSlewRate(m_nSlewRateIndex);
 	}
-	
+
 	m_OnStep.setSyncLocationDataConnect(m_bSyncOnConnect);
 	m_OnStep.setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
 }
@@ -49,10 +49,10 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 X2Mount::~X2Mount()
 {
 	// Write the stored values
-	
+
 	if(m_bLinked)
 		m_OnStep.Disconnect();
-	
+
 	if (m_pSerX)
 		delete m_pSerX;
 	if (m_pTheSkyXForMounts)
@@ -67,14 +67,14 @@ X2Mount::~X2Mount()
 		delete m_pIOMutex;
 	if (m_pTickCount)
 		delete m_pTickCount;
-	
-	
+
+
 }
 
 int X2Mount::queryAbstraction(const char* pszName, void** ppVal)
 {
 	*ppVal = NULL;
-	
+
 	if (!strcmp(pszName, SyncMountInterface_Name))
 		*ppVal = dynamic_cast<SyncMountInterface*>(this);
 	if (!strcmp(pszName, SlewToInterface_Name))
@@ -101,7 +101,7 @@ int X2Mount::queryAbstraction(const char* pszName, void** ppVal)
 		*ppVal = dynamic_cast<SerialPortParams2Interface*>(this);
 	else if (!strcmp(pszName, DriverSlewsToParkPositionInterface_Name))
 		*ppVal = dynamic_cast<DriverSlewsToParkPositionInterface*>(this);
-	
+
 	return SB_OK;
 }
 
@@ -112,10 +112,10 @@ int X2Mount::startOpenLoopMove(const MountDriverInterface::MoveDir& Dir, const i
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
-	
+
+
 	m_CurrentRateIndex = nRateIndex;
 	nErr = m_OnStep.startOpenLoopMove(Dir, nRateIndex);
 	if(nErr) {
@@ -129,9 +129,9 @@ int X2Mount::endOpenLoopMove(void)
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	nErr = m_OnStep.stopOpenLoopMove();
 	if(nErr) {
 		return ERR_CMDFAILED;
@@ -142,7 +142,7 @@ int X2Mount::endOpenLoopMove(void)
 int X2Mount::rateCountOpenLoopMove(void) const
 {
 	X2Mount* pMe = (X2Mount*)this;
-	
+
 	X2MutexLocker ml(pMe->GetMutex());
 	return pMe->m_OnStep.getNbSlewRates();
 }
@@ -151,9 +151,9 @@ int X2Mount::rateNameFromIndexOpenLoopMove(const int& nZeroBasedIndex, char* psz
 {
 	int nErr = SB_OK;
 	std::string sTmp;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	nErr = m_OnStep.getRateName(nZeroBasedIndex, sTmp);
 	if(nErr) {
 		return ERR_CMDFAILED;
@@ -183,23 +183,23 @@ int X2Mount::execModalSettingsDialog(void)
 	std::string sLatitude;
 	std::string sTimeZone;
 	double dVolts;
-	
+
 	if (NULL == ui) return ERR_POINTER;
-	
+
 	if ((nErr = ui->loadUserInterface("OnStep.ui", deviceType(), m_nPrivateMulitInstanceIndex)))
 		return nErr;
-	
+
 	if (NULL == (dx = uiutil.X2DX())) {
 		return ERR_POINTER;
 	}
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	// Set values in the userinterface
 	if(m_bLinked) {
 		dx->setEnabled("pushButton",true);
 		dx->setEnabled("pushButton_3",true);
-		
+
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
 		if(!nErr) {
@@ -208,12 +208,12 @@ int X2Mount::execModalSettingsDialog(void)
 		}
 		m_OnStep.getSiteData(sLongitude, sLatitude, sTimeZone);
 		sTimeZone = std::string("GMT ") + sTimeZone;
-		
+
 		dx->setText("longitude", sLongitude.c_str());
 		dx->setText("latitude", sLatitude.c_str());
 		dx->setText("timezone", sTimeZone.c_str());
 		dx->setCurrentIndex("comboBox", m_nParkingPosition-1);
-		
+
 		m_OnStep.getInputVoltage(dVolts);
 		dx->setText("voltage", (std::string("Input volatage : ") + std::to_string(dVolts)).c_str());
 	}
@@ -226,14 +226,14 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setEnabled("pushButton",false);
 		dx->setEnabled("pushButton_3",false);
 	}
-	
+
 	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
 	dx->setChecked("checkBox_2", (m_bStopTrackingOnDisconnect?1:0));
-	
+
 	//Display the user interface
 	if ((nErr = ui->exec(bPressedOK)))
 		return nErr;
-	
+
 	//Retreive values from the user interface
 	if (bPressedOK) {
 		m_bSyncOnConnect = (dx->isChecked("checkBox")==1?true:false);
@@ -255,10 +255,10 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 	std::string sDate;
 	std::string sTmp;
 	double dVolts;
-	
+
 	if(!m_bLinked)
-		return ; 
-	
+		return ;
+
 	if (!strcmp(pszEvent, "on_timer")) {
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
@@ -269,7 +269,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		m_OnStep.getInputVoltage(dVolts);
 		uiex->setText("voltage", (std::string("Input volatage : ") + std::to_string(dVolts)).c_str());
 	}
-	
+
 	if (!strcmp(pszEvent, "on_pushButton_clicked")) {
 		m_OnStep.syncDate();
 		m_OnStep.syncTime();
@@ -279,21 +279,21 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 			sTmp =sDate + " - " + sTime;
 			uiex->setText("time_date", sTmp.c_str());
 		}
-		
+
 		m_OnStep.setSiteData( m_pTheSkyXForMounts->longitude(),
 							 m_pTheSkyXForMounts->latitude(),
 							 m_pTheSkyXForMounts->timeZone());
 		m_OnStep.getSiteData(sLongitude, sLatitude, sTimeZone);
 		sTimeZone = std::string("GMT ") + sTimeZone;
-		
+
 		uiex->setText("longitude", sLongitude.c_str());
 		uiex->setText("latitude", sLatitude.c_str());
 		uiex->setText("timezone", sTimeZone.c_str());
 	}
-	
+
 	if (!strcmp(pszEvent, "on_pushButton_3_clicked")) {
 	}
-	
+
 	return;
 }
 
@@ -302,12 +302,12 @@ int X2Mount::establishLink(void)
 {
 	int nErr;
 	std::string sPortName;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	// get serial port device name
 	getPortName(sPortName);
-	
+
 	nErr =  m_OnStep.Connect(sPortName);
 	if(nErr) {
 		m_bLinked = false;
@@ -321,12 +321,12 @@ int X2Mount::establishLink(void)
 int X2Mount::terminateLink(void)
 {
 	int nErr = SB_OK;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	nErr = m_OnStep.Disconnect();
 	m_bLinked = false;
-	
+
 	return nErr;
 }
 
@@ -367,12 +367,12 @@ void X2Mount::deviceInfoNameShort(BasicStringInterface& str) const
 void X2Mount::deviceInfoNameLong(BasicStringInterface& str) const
 {
 	str = "OnStep Mount";
-	
+
 }
 void X2Mount::deviceInfoDetailedDescription(BasicStringInterface& str) const
 {
 	str = "OnStep mount";
-	
+
 }
 void X2Mount::deviceInfoFirmwareVersion(BasicStringInterface& str)
 {
@@ -398,17 +398,17 @@ void X2Mount::deviceInfoModel(BasicStringInterface& str)
 int X2Mount::raDec(double& ra, double& dec, const bool& bCached)
 {
 	int nErr = 0;
-	
+
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	// Get the RA and DEC from the mount
 	nErr = m_OnStep.getRaAndDec(ra, dec);
 	if(nErr)
 		nErr = ERR_CMDFAILED;
-	
+
 	return nErr;
 }
 
@@ -417,9 +417,9 @@ int X2Mount::abort()
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	nErr = m_OnStep.Abort();
 	if(nErr) {
 		nErr = ERR_CMDFAILED;
@@ -430,16 +430,16 @@ int X2Mount::abort()
 int X2Mount::startSlewTo(const double& dRa, const double& dDec)
 {
 	int nErr = SB_OK;
-	
+
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
 	nErr = m_OnStep.startSlewTo(dRa, dDec);
 	if(nErr) {
 		return nErr;
 	}
-	
+
 	return nErr;
 }
 
@@ -448,7 +448,7 @@ int X2Mount::isCompleteSlewTo(bool& bComplete) const
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2Mount* pMe = (X2Mount*)this;
 	X2MutexLocker ml(pMe->GetMutex());
 	nErr = pMe->m_OnStep.isSlewToComplete(bComplete);
@@ -464,10 +464,10 @@ int X2Mount::endSlewTo(void)
 int X2Mount::syncMount(const double& ra, const double& dec)
 {
 	int nErr = SB_OK;
-	
+
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
 	nErr = m_OnStep.syncTo(ra, dec);
 	if(nErr) {
@@ -479,14 +479,14 @@ int X2Mount::syncMount(const double& ra, const double& dec)
 bool X2Mount::isSynced(void)
 {
 	int nErr;
-	
+
 	if(!m_bLinked)
 		return false;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	nErr = m_OnStep.isAligned(m_bSynced);
-	
+
 	return m_bSynced;
 }
 
@@ -496,28 +496,28 @@ int X2Mount::setTrackingRates(const bool& bSiderialTrackingOn, const bool& bIgno
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	nErr = m_OnStep.setTrackingRates(bSiderialTrackingOn, bIgnoreRates, dRaRateArcSecPerSec, dDecRateArcSecPerSec);
-	
+
 	return nErr;
 }
 
 int X2Mount::trackingRates(bool& bSiderialTrackingOn, double& dRaRateArcSecPerSec, double& dDecRateArcSecPerSec)
 {
 	int nErr = SB_OK;
-	
+
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	nErr = m_OnStep.getTrackRates(bSiderialTrackingOn, dRaRateArcSecPerSec, dDecRateArcSecPerSec);
 	if(nErr) {
 		return ERR_CMDFAILED;
 	}
-	
+
 	return nErr;
 }
 
@@ -526,7 +526,7 @@ int X2Mount::siderealTrackingOn()
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
 	nErr = setTrackingRates( true, true, 0.0, 0.0);
 	return nErr;
@@ -537,7 +537,7 @@ int X2Mount::trackingOff()
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
 	nErr = setTrackingRates( false, true, 0.0, 0.0);
 	return nErr;
@@ -546,10 +546,10 @@ int X2Mount::trackingOff()
 #pragma mark - NeedsRefractionInterface
 bool X2Mount::needsRefactionAdjustments(void)
 {
-	
+
 	if(!m_bLinked)
 		return false;
-	
+
 	return true;
 }
 
@@ -557,10 +557,10 @@ bool X2Mount::needsRefactionAdjustments(void)
 bool X2Mount::isParked(void)
 {
 	int nErr;
-	
+
 	if(!m_bLinked)
 		return false;
-	
+
 	X2MutexLocker ml(GetMutex());
 	nErr = m_OnStep.getAtPark(m_bParked);
 	if(nErr) {
@@ -572,12 +572,12 @@ bool X2Mount::isParked(void)
 int X2Mount::startPark(const double& dAz, const double& dAlt)
 {
 	int nErr = SB_OK;
-	
+
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
-	
+
 	nErr = m_OnStep.gotoPark(dAz, dAlt);
 	if (nErr) {
 		nErr = ERR_CMDFAILED;
@@ -589,17 +589,17 @@ int X2Mount::startPark(const double& dAz, const double& dAlt)
 int X2Mount::isCompletePark(bool& bComplete) const
 {
 	int nErr = SB_OK;
-	
+
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2Mount* pMe = (X2Mount*)this;
 	X2MutexLocker ml(pMe ->GetMutex());
-	
+
 	nErr =  pMe->m_OnStep.isParkingComplete(bComplete);
 	if(nErr)
 		return nErr;
-	
+
 	return nErr;
 }
 
@@ -613,13 +613,13 @@ int X2Mount::startUnpark(void)
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
 	nErr = m_OnStep.unPark();
 	if(nErr) {
 		nErr = ERR_CMDFAILED;
 	}
-	
+
 	return nErr;
 }
 
@@ -629,23 +629,23 @@ int X2Mount::startUnpark(void)
 int X2Mount::isCompleteUnpark(bool& bComplete) const
 {
 	int nErr = SB_OK;
-	
+
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2Mount* pMe = (X2Mount*)this;
-	
+
 	X2MutexLocker ml(pMe ->GetMutex());
 	bComplete = false;
-	
+
 	nErr = pMe->m_OnStep.isUnparkDone(bComplete);
-	
+
 	if(bComplete) { // no longer parked.
 		pMe->m_bParked = false;
 	}
 	else
 		pMe->m_bParked = true;
-	
+
 	return nErr;
 }
 
@@ -680,7 +680,7 @@ double X2Mount::flipHourAngle()
 	double dHourAngle = 0.0;
 	X2MutexLocker ml(GetMutex());
 	nErr = m_OnStep.getflipHourAngle(dHourAngle);
-	
+
 	return dHourAngle;
 }
 
@@ -694,10 +694,10 @@ int X2Mount::gemLimits(double& dHoursEast, double& dHoursWest)
 	int nErr = SB_OK;
 	if(!m_bLinked)
 		return ERR_NOLINK;
-	
+
 	X2MutexLocker ml(GetMutex());
 	nErr = m_OnStep.getLimits(dHoursEast, dHoursWest);
-	
+
 	return SB_OK;
 }
 
@@ -707,7 +707,7 @@ void X2Mount::portName(BasicStringInterface& str) const
 {
 	std::string sPortName;
 	getPortName(sPortName);
-	
+
 	str = sPortName.c_str();
 }
 
@@ -715,21 +715,17 @@ void X2Mount::setPortName(const char* pszPort)
 {
 	if (m_pIniUtil)
 		m_pIniUtil->writeString(PARENT_KEY, CHILD_KEY_PORT_NAME, pszPort);
-	
+
 }
 
 void X2Mount::getPortName(std::string &sPortName) const
 {
 	sPortName.assign(DEF_PORT_NAME);
-	
+
 	if (m_pIniUtil) {
 		char port[255];
 		m_pIniUtil->readString(PARENT_KEY, CHILD_KEY_PORT_NAME, sPortName.c_str(), port, 255);
 		sPortName.assign(port);
 	}
-	
+
 }
-
-
-
-
