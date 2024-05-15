@@ -20,10 +20,12 @@ OnStep::OnStep()
 	m_dRa = 0;
 	m_dDec = 0;
 
+	m_bSyncDone = false;
+	m_nAlignementStars = 0;
+
 	m_bSyncLocationDataConnect = false;
 	m_bHomeOnUnpark = false;
 
-	m_bSyncDone = false;
 	m_bIsAtHome = false;
 	m_bIsParked = true;
 	m_bIsParking = false;
@@ -668,9 +670,7 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 int OnStep::syncTo(double dRa, double dDec)
 {
 	int nErr = PLUGIN_OK;
-	std::stringstream ssTmp;
 	std::string sResp;
-	char cSign;
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [syncTo]  Ra Hours   : " << std::fixed << std::setprecision(5) << dRa << std::endl;
@@ -679,21 +679,37 @@ int OnStep::syncTo(double dRa, double dDec)
 	m_sLogFile.flush();
 #endif
 
-
-	if(dDec <0) {
-		cSign = '-';
-		dDec = -dDec;
-	} else {
-		cSign = '+';
+	nErr = setTarget(dRa, dDec);
+	if(nErr) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [syncTo] Error setting sync target." << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
 	}
 
-	// TODO
-	// setTarget
-	// sync to target
-
-	if (!m_bSyncDone) {
-
-	}
+//	if(!m_bSyncDone) {
+		nErr = sendCommand(":CM#", sResp); // sync
+		if(nErr) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [syncTo] Error syncing to target." << std::endl;
+			m_sLogFile.flush();
+#endif
+			return nErr;
+		}
+		if(sResp.at(0) == 'E') {
+			nErr = ERR_CMDFAILED;
+			// process error
+		} else {
+			m_bSyncDone = true;
+		}
+//	}
+//	else {
+		// add alignement start
+		
+//	}
+	m_dRa = dRa;
+	m_dDec = dDec;
 
 	return nErr;
 }
@@ -1058,7 +1074,7 @@ int OnStep::getNbSlewRates()
 	return PLUGIN_NB_SLEW_SPEEDS;
 }
 
-// returns "Slew", "ViewVel4", "ViewVel3", "ViewVel2", "ViewVel1"
+
 int OnStep::getRateName(int nZeroBasedIndex, std::string &sOut)
 {
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -1073,6 +1089,12 @@ int OnStep::getRateName(int nZeroBasedIndex, std::string &sOut)
 	return PLUGIN_OK;
 }
 
+int OnStep::setSlewSpeed(int nSlewRateIndex)
+{
+	int nErr = PLUGIN_OK;
+
+	return nErr;
+}
 int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned int nRate)
 {
 	int nErr = PLUGIN_OK;

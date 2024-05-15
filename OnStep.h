@@ -140,7 +140,6 @@ private:
 	bool	m_bIsParking;
 	bool	m_bIsSlewing;
 	int     m_nNbHomingTries;
-	bool    m_bSyncDone;
 	bool    m_bStopTrackingOnDisconnect;
 	int		m_nTrackRate;
 	int		m_nSideOfPier;
@@ -151,6 +150,9 @@ private:
 
 	double  m_dParkAz;
 	double  m_dParkAlt;
+
+	bool    m_bSyncDone;
+	int		m_nAlignementStars;
 
 	std::string     m_sTime;
 	std::string     m_sDate;
@@ -181,6 +183,8 @@ private:
 	int     setTarget(double dRa, double dDec);
 	int     setTargetAltAz(double dAlt, double dAz);
 	int     slewTargetRA_DecEpochNow();
+
+	int		setSlewSpeed(int nSlewRateIndex);
 
 	void    convertDecDegToDDMMSS(double dDeg, std::string &sResult);
 	void    convertDecDegToDDMMSS_ForDecl(double dDeg, std::string &sResult);
