@@ -26,7 +26,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_bSyncOnConnect = false;
 	m_bStopTrackingOnDisconnect = false;
 
-	m_nParkingPosition = 1;
+	m_nParkPosIndex = 0;
 
 	m_OnStep.setSerxPointer(m_pSerX);
 	m_OnStep.setTSX(m_pTheSkyXForMounts);
@@ -40,6 +40,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_bStopTrackingOnDisconnect = (m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_STOP_TRK, 1) == 0 ? false : true);
 		m_nSlewRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, 6);
 		m_OnStep.setSlewRate(m_nSlewRateIndex);
+		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
 	}
 
 	m_OnStep.setSyncLocationDataConnect(m_bSyncOnConnect);
@@ -182,7 +183,6 @@ int X2Mount::execModalSettingsDialog(void)
 	std::string sLongitude;
 	std::string sLatitude;
 	std::string sTimeZone;
-	double dVolts;
 
 	if (NULL == ui) return ERR_POINTER;
 
@@ -195,10 +195,13 @@ int X2Mount::execModalSettingsDialog(void)
 
 	X2MutexLocker ml(GetMutex());
 
+	m_bHoming = false;
 	// Set values in the userinterface
 	if(m_bLinked) {
 		dx->setEnabled("pushButton",true);
+		dx->setEnabled("pushButton_2",true);
 		dx->setEnabled("pushButton_3",true);
+		dx->setEnabled("comboBox", true);
 
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
@@ -212,23 +215,24 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setText("longitude", sLongitude.c_str());
 		dx->setText("latitude", sLatitude.c_str());
 		dx->setText("timezone", sTimeZone.c_str());
-		dx->setCurrentIndex("comboBox", m_nParkingPosition-1);
-
-		m_OnStep.getInputVoltage(dVolts);
-		dx->setText("voltage", (std::string("Input volatage : ") + std::to_string(dVolts)).c_str());
 	}
 	else {
+		dx->setEnabled("pushButton",false);
+		dx->setEnabled("pushButton_2",false);
+		dx->setEnabled("pushButton_3",false);
+		dx->setEnabled("comboBox", false);
+
 		dx->setText("time_date", "");
 		dx->setText("siteName", "");
 		dx->setText("longitude", "");
 		dx->setText("latitude", "");
 		dx->setText("timezone", "");
-		dx->setEnabled("pushButton",false);
-		dx->setEnabled("pushButton_3",false);
 	}
 
+	dx->setCurrentIndex("comboBox", m_nParkPosIndex);
 	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
 	dx->setChecked("checkBox_2", (m_bStopTrackingOnDisconnect?1:0));
+	dx->setEnabled("checkBox_3", false); // not supported yet.
 
 	//Display the user interface
 	if ((nErr = ui->exec(bPressedOK)))
@@ -240,6 +244,10 @@ int X2Mount::execModalSettingsDialog(void)
 		m_bStopTrackingOnDisconnect = (dx->isChecked("checkBox_2")==1?true:false);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SYNC_TIME, (m_bSyncOnConnect?1:0));
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_STOP_TRK, (m_bStopTrackingOnDisconnect?1:0));
+		m_nParkPosIndex = dx->currentIndex("comboBox");
+		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_PARK_POS, m_nParkPosIndex);
+
+
 		m_OnStep.setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
 	}
 	return nErr;
@@ -254,7 +262,10 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 	std::string sTime;
 	std::string sDate;
 	std::string sTmp;
-	double dVolts;
+	std::stringstream sErrorMessage;
+	double dAlt, dAz;
+	int nParkPosIndex;
+	bool bComplete;
 
 	if(!m_bLinked)
 		return ;
@@ -266,8 +277,47 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 			sTmp =sDate + " - " + sTime;
 			uiex->setText("time_date", sTmp.c_str());
 		}
-		m_OnStep.getInputVoltage(dVolts);
-		uiex->setText("voltage", (std::string("Input volatage : ") + std::to_string(dVolts)).c_str());
+		// are we homing ?
+		if(m_bHoming) {
+			nErr = m_OnStep.isHomingDone(bComplete);
+			if(nErr) {
+				m_bHoming = false;
+				sErrorMessage << "Error while homing : " << nErr;
+				uiex->messageBox("OnStep Homing", sErrorMessage.str().c_str());
+				return;
+			}
+			if(!bComplete) {
+				return;
+			}
+			// enable buttons
+			uiex->setEnabled("pushButtonOK",true);
+			uiex->setEnabled("pushButtonCancel", true);
+			uiex->setText("pushButton", "Calibrate");
+			uiex->setEnabled("pushButton_2", true);
+			uiex->setEnabled("pushButton_3", true);
+			m_bHoming = false;
+		}
+		// are we seding the mount to the position to be ser as park ?
+		if(m_bSettingPark) {
+			nErr = m_OnStep.isSlewToComplete(bComplete);
+			if(nErr) {
+				m_bSettingPark = false;
+				sErrorMessage << "Error while parking : " << nErr;
+				uiex->messageBox("OnStep Parking", sErrorMessage.str().c_str());
+				return;
+			}
+			if(!bComplete) {
+				return;
+			}
+			// set the current postion as the park postion
+			m_OnStep.setCurentPosAsPark();
+			m_bSettingPark = false;
+			uiex->setEnabled("pushButtonOK",true);
+			uiex->setEnabled("pushButtonCancel", true);
+			uiex->setText("pushButton", "Calibrate");
+			uiex->setEnabled("pushButton_3", true);
+			uiex->setText("pushButton_2", "Goto park position and set in mount");
+		}
 	}
 
 	if (!strcmp(pszEvent, "on_pushButton_clicked")) {
@@ -292,6 +342,63 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 	}
 
 	if (!strcmp(pszEvent, "on_pushButton_3_clicked")) {
+		if( m_bHoming) { // Abort
+			// enable buttons
+			uiex->setEnabled("pushButtonOK",true);
+			uiex->setEnabled("pushButtonCancel", true);
+			uiex->setText("pushButton", "Calibrate");
+			uiex->setEnabled("pushButton_2", true);
+			uiex->setText("pushButton_3", "Home mount");
+		} else {								// home
+			// disable buttons
+			uiex->setEnabled("pushButtonOK",false);
+			uiex->setEnabled("pushButtonCancel", false);
+			uiex->setEnabled("pushButton_2", false);
+			// change "Home mount" to "Abort"
+			uiex->setText("pushButton_3", "Abort");
+			m_bHoming = true;
+			m_OnStep.homeMount();
+		}
+	}
+
+	if (!strcmp(pszEvent, "on_pushButton_2_clicked")) {
+		if( m_bSettingPark) { // Abort
+			// enable buttons
+			uiex->setEnabled("pushButtonOK",true);
+			uiex->setEnabled("pushButtonCancel", true);
+			uiex->setText("pushButton", "Calibrate");
+			uiex->setEnabled("pushButton_3", true);
+			uiex->setText("pushButton_2", "Goto park position and set in mount");
+		} else {								// park
+			// disable buttons
+			uiex->setEnabled("pushButtonOK",false);
+			uiex->setEnabled("pushButtonCancel", false);
+			uiex->setEnabled("pushButton_3", false);
+			// change "Home mount" to "Abort"
+			uiex->setText("pushButton_2", "Abort");
+			nParkPosIndex = uiex->currentIndex("comboBox");
+			switch(nParkPosIndex) {
+				case 0:
+					dAlt = 0.0;
+					dAz = 270.0;
+					break;
+				case 1:
+					dAlt = 0.0;
+					dAz = 180.0;
+					break;
+				case 2:
+					dAlt = 0.0;
+					dAz = 90.0;
+					break;
+				default:
+					dAlt = 0.0;
+					dAz = 270.0;
+					break;
+			}
+			nErr = m_OnStep.gotoParkPos(dAlt, dAz);
+			m_bSettingPark = true;
+
+		}
 	}
 
 	return;
@@ -578,7 +685,7 @@ int X2Mount::startPark(const double& dAz, const double& dAlt)
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.gotoPark(dAz, dAlt);
+	nErr = m_OnStep.gotoPark();
 	if (nErr) {
 		nErr = ERR_CMDFAILED;
 	}

@@ -202,8 +202,10 @@ private:
 
 	bool m_bSynced;
 	bool m_bParked;
+	bool m_bHoming;
+	bool m_bSettingPark;
 
-	int m_nParkingPosition;
+	int m_nParkPosIndex;
 	bool m_bSyncOnConnect;
 	int m_nSlewRateIndex;
 	bool m_bStopTrackingOnDisconnect;

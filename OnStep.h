@@ -74,6 +74,7 @@ public:
 
 	int setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double dRaRateArcSecPerSec, double dDecRateArcSecPerSec);
 	int getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec, double &dDecRateArcSecPerSec);
+	int isTrackingOn(bool &bTrakOn);
 
 	int setSlewRate(int nRate);
 	void setGoToSlewRate(int nRate);
@@ -86,12 +87,14 @@ public:
 	int getNbSlewRates();
 	int getRateName(int nZeroBasedIndex, std::string &sOut);
 
-	int gotoPark(double dAlt, double dAz);
+	int gotoParkPos(double dAlt, double dAz);
+	int gotoPark();
+
 	int isParkingComplete(bool &bComplete);
 	int getAtPark(bool &bParked);
 	int unPark();
 	int isUnparkDone(bool &bcomplete);
-	int isTrackingOn(bool &bTrakOn);
+	int setCurentPosAsPark();
 
 	int getLimits(double &dHoursEast, double &dHoursWest);
 	int getflipHourAngle(double &dHourAngle);
@@ -108,8 +111,6 @@ public:
 
 	int homeMount();
 	int isHomingDone(bool &bIsHomed);
-
-	int getInputVoltage(double &dVolts);
 
 	int IsBeyondThePole(bool &bBeyondPole);
 
@@ -182,8 +183,8 @@ private:
 
 	int     setTarget(double dRa, double dDec);
 	int     setTargetAltAz(double dAlt, double dAz);
-	int     slewTargetRA_DecEpochNow();
-
+	int     slewTargetRaDecEpochNow();
+	int		slewTargetAltAszEpochNow();
 	int		setSlewSpeed(int nSlewRateIndex);
 
 	void    convertDecDegToDDMMSS(double dDeg, std::string &sResult);

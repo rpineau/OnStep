@@ -974,8 +974,8 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	if(nErr)
 		return nErr;
 
-	setSlewRate(m_nGoToSlewRate);
-	nErr = slewTargetRA_DecEpochNow();
+	// setSlewRate(m_nGoToSlewRate);
+	nErr = slewTargetRaDecEpochNow();
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [startSlewTo] error " << nErr << std::endl;
@@ -988,7 +988,7 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	return nErr;
 }
 
-int OnStep::slewTargetRA_DecEpochNow()
+int OnStep::slewTargetRaDecEpochNow()
 {
 	int nErr;
 	std::string sResp;
@@ -1000,6 +1000,83 @@ int OnStep::slewTargetRA_DecEpochNow()
 #endif
 
 	nErr = sendCommand(":MS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
+	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
+		nErr = PLUGIN_OK;
+	else if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Error slewing, response : " << sResp << std::endl;
+		m_sLogFile.flush();
+#endif
+		return ERR_CMDFAILED;
+	}
+	if(sResp.size()) {
+		nRespCode = std::stoi(sResp);
+		switch(nRespCode) {
+			case 0:
+				// all good
+				break;
+
+			case 1:
+#if defined PLUGIN_DEBUG
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error below horizon."  << std::endl;
+				m_sLogFile.flush();
+#endif
+				nErr = ERR_LX200DESTBELOWHORIZ;
+				break;
+
+			case 2:
+#if defined PLUGIN_DEBUG
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error no object."  << std::endl;
+				m_sLogFile.flush();
+#endif
+				nErr = ERR_NOOBJECTSELECTED;
+				break;
+
+			case 4:
+#if defined PLUGIN_DEBUG
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error position unreachable."  << std::endl;
+				m_sLogFile.flush();
+#endif
+				nErr = ERR_GEMINI_POSITION_UNREACHABLE;
+				break;
+
+			case 5:
+#if defined PLUGIN_DEBUG
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error not aligned."  << std::endl;
+				m_sLogFile.flush();
+#endif
+				nErr = ERR_GEMINI_NOT_ALIGNED;
+				break;
+
+			case 6:
+#if defined PLUGIN_DEBUG
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Limit error outside limits."  << std::endl;
+				m_sLogFile.flush();
+#endif
+				nErr = ERR_LX200OUTSIDELIMIT;
+				break;
+
+			default:
+				nErr = ERR_MKS_SLEW_PAST_LIMIT;
+				break;
+
+		}
+	}
+	return nErr;
+}
+
+int OnStep::slewTargetAltAszEpochNow()
+{
+	int nErr;
+	std::string sResp;
+	int nRespCode;
+
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Called." << std::endl;
+	m_sLogFile.flush();
+#endif
+
+	nErr = sendCommand(":MA#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
 	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
 		nErr = PLUGIN_OK;
 	else if(nErr) {
@@ -1201,7 +1278,52 @@ int OnStep::isSlewToComplete(bool &bComplete)
 	return nErr;
 }
 
-int OnStep::gotoPark(double dAlt, double dAz)
+int OnStep::gotoParkPos(double dAlt, double dAz)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [gotoPark] Called." << std::endl;
+	m_sLogFile.flush();
+#endif
+
+	m_bIsParking = false;
+
+	// stop tracking
+	nErr = setTrackingRates( false, true, 0.0, 0.0);
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [gotoPark] setTrackingRates error " << nErr << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
+	}
+
+	// go to park coordinate
+	nErr = setTargetAltAz(dAlt, dAz);
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [gotoPark] setTargetAltAz error " << nErr << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
+	}
+
+
+	nErr = slewTargetAltAszEpochNow();
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [gotoPark] slewTargetAltAszEpochNow error " << nErr << std::endl;
+		m_sLogFile.flush();
+#endif
+		return nErr;
+	}
+
+	m_bIsParking = true;
+	return nErr;
+}
+
+int OnStep::gotoPark()
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
@@ -1345,6 +1467,34 @@ int OnStep::isUnparkDone(bool &bComplete)
 	return nErr;
 }
 
+int OnStep::setCurentPosAsPark()
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [unPark] Called." << std::endl;
+	m_sLogFile.flush();
+#endif
+
+	nErr = sendCommand(":hQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setCurentPosAsPArk] error " << nErr << std::endl;
+		m_sLogFile.flush();
+#endif
+	}
+
+	nErr = getStatus(); // will update the flags
+	if(nErr) {
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [unPark] getStatus error " << nErr << std::endl;
+		m_sLogFile.flush();
+#endif
+	}
+
+	return nErr;
+}
 
 int OnStep::homeMount()
 {
@@ -1798,40 +1948,6 @@ int OnStep::getLocalDate(std::string &sDate)
 	if(sResp.size() == 0)
 		return ERR_CMDFAILED;
 	sDate.assign(sResp);
-	return nErr;
-}
-
-int OnStep::getInputVoltage(double &dVolts)
-{
-	int nErr;
-	std::string sResp;
-
-	dVolts = 0.0;
-
-	nErr = sendCommand(":Cv#", sResp);
-	if(nErr) {
-#if defined PLUGIN_DEBUG
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getInputVoltage] error " << nErr << ", response : " << sResp << std::endl;
-		m_sLogFile.flush();
-#endif
-		return nErr;
-	}
-
-	try {
-		if(sResp.size() == 0)
-			return ERR_CMDFAILED;
-		dVolts = std::stod(sResp);
-	}
-	catch(const std::exception& e) {
-#if defined PLUGIN_DEBUG
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getInputVoltage] conversion exception : " << e.what() << std::endl;
-		m_sLogFile.flush();
-#endif
-		return ERR_PARSE;
-	}
-
-
-
 	return nErr;
 }
 
