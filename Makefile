@@ -1,4 +1,4 @@
-# Makefile for libNexDome
+# Makefile for libOnStep
 
 CC = gcc
 CFLAGS = -fPIC -Wall -Wextra -O2 -g -DSB_LINUX_BUILD -I. -I./../../

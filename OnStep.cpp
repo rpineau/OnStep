@@ -74,12 +74,11 @@ int OnStep::Connect(std::string sPort)
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [Connect] Trying to connect to port " << sPort<< std::endl;
 	m_sLogFile.flush();
 #endif
-
+	m_bIsConnected = false;
 	// 9600 8N1
 	if(m_pSerx->open(sPort.c_str(), 9600, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
 		m_bIsConnected = true;
-	else
-		m_bIsConnected = false;
+
 	/*
 	 // reconnect at 56.7K
 	 nErr = sendCommand("SB1#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
@@ -104,19 +103,28 @@ int OnStep::Connect(std::string sPort)
 		nErr = setSiteData(m_pTsx->longitude(),
 						   m_pTsx->latitude(),
 						   m_pTsx->timeZone());
-	}
-	if(nErr) {
+		if(nErr) {
 #if defined PLUGIN_DEBUG
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [Connect] error " << nErr << ", response = " << sResp << std::endl;
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [Connect] error " << nErr << ", response = " << sResp << std::endl;
+			m_sLogFile.flush();
+#endif
+			m_bIsConnected = false;
+			return nErr;
+		}
+	}
+	m_bSyncDone = false;
+	nErr = isHomingDone(m_bIsAtHome);
+	if(nErr) {
+		if(nErr == ERR_TXTIMEOUT)
+			m_bIsConnected = false;
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [Connect] error calling isHomingDone :" << nErr << ", response = " << sResp << std::endl;
 		m_sLogFile.flush();
 #endif
 		m_bIsConnected = false;
-		return nErr;
-	}
-	m_bSyncDone = false;
-	isHomingDone(m_bIsAtHome);
 
-	return SB_OK;
+	}
+	return nErr;
 }
 
 
@@ -156,16 +164,18 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 	m_pSerx->purgeTxRx();
 	sResp.clear();
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [sendCommand] sending '" << sCmd << "'" << std::endl;
 	m_sLogFile.flush();
 #endif
 
 	nErr = m_pSerx->writeFile((void *)sCmd.c_str(), sCmd.size(), ulBytesWrite);
 	m_pSerx->flushTx();
-	if(nErr)
+	if(nErr) {
+		if(nErr == ERR_TXTIMEOUT)
+			m_bIsConnected = false;
 		return nErr;
-
+	}
 	// read response
 	if(nTimeout == 0) // no response expected
 		return nErr;
@@ -175,13 +185,13 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 
 	nErr = readResponse(sResp, nTimeout, cEndOfResponse, nExpectedResLen);
 	if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [sendCommand] ***** ERROR READING RESPONSE **** error = " << nErr << " , response : '" << sResp << "'" << std::endl;
 		m_sLogFile.flush();
 #endif
 		return nErr;
 	}
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [sendCommand] response : '" << sResp << "'" <<  std::endl;
 	m_sLogFile.flush();
 #endif
@@ -324,42 +334,42 @@ int OnStep::getStatus()
 			switch(sStatus.at(nIndex++)) {
 				case 'n':
 					m_bIsTracking = false;
-					continue;
+					break;
 				case 'N':
 					m_bIsSlewing = false;
-					continue;
+					break;
 				case 'p':
 					m_bIsParked = false;
-					continue;
+					break;
 				case 'P':
 					m_bIsParked = true;
-					continue;
+					break;
 				case 'I':
 					m_bIsParking = true;
-					continue;
+					break;
 				case 'h':
 					m_bIsHoming = true;
-					continue;
+					break;
 				case 'H':
 					m_bIsAtHome = true;
-					continue;
+					break;
 				case '(':
 					m_nTrackRate = LUNAR;
-					continue;
+					break;
 				case 'O':
 					m_nTrackRate = SOLAR;
-					continue;
+					break;
 				case 'k':
 					m_nTrackRate = KING;
-					continue;
+					break;
 				case 'T':
 					m_nSideOfPier = EAST;
-					continue;
+					break;
 				case 'W':
-					m_nSideOfPier = EAST;
-					continue;
+					m_nSideOfPier = WEST;
+					break;
 				default:
-					continue;
+					break;
 			}
 		}
 	}
@@ -367,12 +377,12 @@ int OnStep::getStatus()
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsTracking : " << (m_bIsTracking?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsSlewing  : " << (m_bIsSlewing?"Yes":"No") << std::endl;
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsParked 	 : " << (m_bIsParked?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsParked   : " << (m_bIsParked?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsParking  : " << (m_bIsParking?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsAtHome   : " << (m_bIsAtHome?"Yes":"No") << std::endl;
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsHoming   : " << (m_bIsAtHome?"Yes":"No") << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_bIsHoming   : " << (m_bIsHoming?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_nTrackRate  : " << m_nTrackRate << std::endl;
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_nSideOfPier : " << m_nSideOfPier << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getStatus] m_nSideOfPier : " << (m_nSideOfPier==EAST?"East":"West") << std::endl;
 	m_sLogFile.flush();
 #endif
 
@@ -394,6 +404,8 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 	// get RA
 	nErr = sendCommand(":GRH#", sResp);
 	if(nErr) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		std::this_thread::yield();
 		// retry
 		nErr = sendCommand(":GRH#", sResp);
 		if(nErr) {
@@ -403,7 +415,7 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 #endif
 			dRa = m_dRa;
 			dDec = m_dDec;
-			return PLUGIN_OK;
+			return PLUGIN_OK; // we will retry
 		}
 	}
 
@@ -431,9 +443,12 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 	m_dRa = dRa;
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
+	std::this_thread::yield();
 	// get DEC
 	nErr = sendCommand(":GDH#", sResp);
 	if(nErr) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		std::this_thread::yield();
 		// retry
 		nErr = sendCommand(":GDH#", sResp);
 		if(nErr) {
@@ -443,7 +458,7 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 #endif
 			dRa = m_dRa;
 			dDec = m_dDec;
-			return PLUGIN_OK;
+			return PLUGIN_OK; // we will retry
 		}
 	}
 	if(sResp.size() == 0)
@@ -919,8 +934,9 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 	}
 	dWest = std::fabs(std::stod(sResp))/15.0;
 
-	dHourAngle = (dEast>dWest)?dWest:dEast; // we take the smallest one as TSX only has 1 value
-
+	// dHourAngle = (dEast>dWest)?dWest:dEast; // we take the smallest one as TSX only has 1 value
+	dHourAngle = dWest;
+	
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [getflipHourAngle] dHourAngle  : " << std::fixed << std::setprecision(8) << dHourAngle << std::endl;
 	m_sLogFile.flush();
@@ -950,7 +966,7 @@ void OnStep::setGoToSlewRate(int nRate)
 	m_nGoToSlewRate = nRate;
 }
 
-int OnStep::gsetGoToSlewRate()
+int OnStep::getGoToSlewRate()
 {
 	return m_nGoToSlewRate;
 }
@@ -974,7 +990,7 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	if(nErr)
 		return nErr;
 
-	// setSlewRate(m_nGoToSlewRate);
+	setSlewRate(m_nGoToSlewRate);
 	nErr = slewTargetRaDecEpochNow();
 	if(nErr) {
 #if defined PLUGIN_DEBUG
@@ -998,7 +1014,7 @@ int OnStep::slewTargetRaDecEpochNow()
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [slewTargetRA_DecEpochNow] Called." << std::endl;
 	m_sLogFile.flush();
 #endif
-
+	
 	nErr = sendCommand(":MS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
 	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
 		nErr = PLUGIN_OK;
@@ -1255,6 +1271,11 @@ int OnStep::isSlewToComplete(bool &bComplete)
 	bComplete = false;
 	if(!m_bIsSlewing ) {
 		bComplete = true;
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isSlewToComplete] m_bIsSlewing : " << (m_bIsSlewing?"Yes":"No") << std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [isSlewToComplete] bComplete    : " << (bComplete?"Yes":"No") << std::endl;
+		m_sLogFile.flush();
+#endif
 		return nErr;
 	}
 
@@ -1281,6 +1302,7 @@ int OnStep::isSlewToComplete(bool &bComplete)
 int OnStep::gotoParkPos(double dAlt, double dAz)
 {
 	int nErr = PLUGIN_OK;
+	double dRa, dDec;
 	std::string sResp;
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [gotoPark] Called." << std::endl;
@@ -1298,9 +1320,10 @@ int OnStep::gotoParkPos(double dAlt, double dAz)
 #endif
 		return nErr;
 	}
+	nErr = m_pTsx->HzToEq(dAz, dAlt, dRa, dDec);
 
 	// go to park coordinate
-	nErr = setTargetAltAz(dAlt, dAz);
+	nErr = setTarget(dRa, dDec);
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [gotoPark] setTargetAltAz error " << nErr << std::endl;
@@ -1310,7 +1333,7 @@ int OnStep::gotoParkPos(double dAlt, double dAz)
 	}
 
 
-	nErr = slewTargetAltAszEpochNow();
+	nErr = slewTargetRaDecEpochNow();
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [gotoPark] slewTargetAltAszEpochNow error " << nErr << std::endl;
@@ -1320,6 +1343,7 @@ int OnStep::gotoParkPos(double dAlt, double dAz)
 	}
 
 	m_bIsParking = true;
+	m_bIsSlewing = true;
 	return nErr;
 }
 
@@ -1513,7 +1537,7 @@ int OnStep::homeMount()
 		return nErr;
 	}
 
-	nErr = sendCommand(":Ch#", sResp, 0);
+	nErr = sendCommand(":hC#", sResp, 0);
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [homeMount] error " << nErr << " , response :" << sResp << std::endl;

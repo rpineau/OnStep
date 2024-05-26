@@ -71,7 +71,7 @@
       <property name="geometry">
        <rect>
         <x>281</x>
-        <y>650</y>
+        <y>656</y>
         <width>81</width>
         <height>24</height>
        </rect>
@@ -87,7 +87,7 @@
       <property name="geometry">
        <rect>
         <x>370</x>
-        <y>650</y>
+        <y>656</y>
         <width>81</width>
         <height>24</height>
        </rect>
@@ -308,7 +308,7 @@
         <x>20</x>
         <y>330</y>
         <width>430</width>
-        <height>160</height>
+        <height>176</height>
        </rect>
       </property>
       <property name="title">
@@ -317,10 +317,10 @@
       <widget class="QPushButton" name="pushButton_3">
        <property name="geometry">
         <rect>
-         <x>140</x>
+         <x>168</x>
          <y>32</y>
          <width>110</width>
-         <height>30</height>
+         <height>24</height>
         </rect>
        </property>
        <property name="text">
@@ -331,7 +331,7 @@
        <property name="geometry">
         <rect>
          <x>20</x>
-         <y>120</y>
+         <y>112</y>
          <width>200</width>
          <height>20</height>
         </rect>
@@ -353,12 +353,101 @@
         <string>Use TheSkyX sync to add allignement stars</string>
        </property>
       </widget>
+      <widget class="QComboBox" name="comboBox_2">
+       <property name="geometry">
+        <rect>
+         <x>96</x>
+         <y>144</y>
+         <width>184</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <item>
+        <property name="text">
+         <string>0.25x</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>0.5x</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>1x (Guide)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>2x</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>4x (Centering)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>8x (Move)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>24x (Slew)</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>48x</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Half-Max</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Max</string>
+        </property>
+       </item>
+      </widget>
+      <widget class="QLabel" name="label_2">
+       <property name="geometry">
+        <rect>
+         <x>16</x>
+         <y>144</y>
+         <width>72</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Slew rate :</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="homingProgress">
+       <property name="geometry">
+        <rect>
+         <x>192</x>
+         <y>56</y>
+         <width>96</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Homing C</string>
+       </property>
+      </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_3">
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>510</y>
+        <y>520</y>
         <width>430</width>
         <height>120</height>
        </rect>
@@ -407,14 +496,40 @@
       <widget class="QPushButton" name="pushButton_2">
        <property name="geometry">
         <rect>
-         <x>80</x>
-         <y>70</y>
+         <x>16</x>
+         <y>64</y>
          <width>240</width>
          <height>24</height>
         </rect>
        </property>
        <property name="text">
         <string>Goto park position and set in mount</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="parkingProgress">
+       <property name="geometry">
+        <rect>
+         <x>48</x>
+         <y>88</y>
+         <width>192</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Slewing to new park position C</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="pushButton_4">
+       <property name="geometry">
+        <rect>
+         <x>272</x>
+         <y>64</y>
+         <width>144</width>
+         <height>40</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Set to current position</string>
        </property>
       </widget>
      </widget>

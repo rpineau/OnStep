@@ -39,7 +39,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_bSyncOnConnect = (m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SYNC_TIME, 0) == 0 ? false : true);
 		m_bStopTrackingOnDisconnect = (m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_STOP_TRK, 1) == 0 ? false : true);
 		m_nSlewRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, 6);
-		m_OnStep.setSlewRate(m_nSlewRateIndex);
+		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
 		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
 	}
 
@@ -201,6 +201,7 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setEnabled("pushButton",true);
 		dx->setEnabled("pushButton_2",true);
 		dx->setEnabled("pushButton_3",true);
+		dx->setEnabled("pushButton_4",true);
 		dx->setEnabled("comboBox", true);
 
 		nErr = m_OnStep.getLocalTime(sTime);
@@ -220,8 +221,8 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setEnabled("pushButton",false);
 		dx->setEnabled("pushButton_2",false);
 		dx->setEnabled("pushButton_3",false);
+		dx->setEnabled("pushButton_4",false);
 		dx->setEnabled("comboBox", false);
-
 		dx->setText("time_date", "");
 		dx->setText("siteName", "");
 		dx->setText("longitude", "");
@@ -229,10 +230,15 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setText("timezone", "");
 	}
 
+	dx->setEnabled("comboBox_2", true);
+	m_nSlewRateIndex = m_OnStep.getGoToSlewRate();
+	dx->setCurrentIndex("comboBox_2", m_nSlewRateIndex);
 	dx->setCurrentIndex("comboBox", m_nParkPosIndex);
 	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
 	dx->setChecked("checkBox_2", (m_bStopTrackingOnDisconnect?1:0));
 	dx->setEnabled("checkBox_3", false); // not supported yet.
+	dx->setText("homingProgress","");
+	dx->setText("parkingProgress","");
 
 	//Display the user interface
 	if ((nErr = ui->exec(bPressedOK)))
@@ -246,8 +252,10 @@ int X2Mount::execModalSettingsDialog(void)
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_STOP_TRK, (m_bStopTrackingOnDisconnect?1:0));
 		m_nParkPosIndex = dx->currentIndex("comboBox");
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_PARK_POS, m_nParkPosIndex);
+		m_nSlewRateIndex =  dx->currentIndex("comboBox_2");
 
-
+		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
+		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, m_nSlewRateIndex);
 		m_OnStep.setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
 	}
 	return nErr;
@@ -263,9 +271,11 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 	std::string sDate;
 	std::string sTmp;
 	std::stringstream sErrorMessage;
+	std::stringstream ssTmp;
 	double dAlt, dAz;
 	int nParkPosIndex;
 	bool bComplete;
+	char c;
 
 	if(!m_bLinked)
 		return ;
@@ -277,49 +287,51 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 			sTmp =sDate + " - " + sTime;
 			uiex->setText("time_date", sTmp.c_str());
 		}
-		// are we homing ?
+		// Homing
 		if(m_bHoming) {
 			nErr = m_OnStep.isHomingDone(bComplete);
 			if(nErr) {
-				m_bHoming = false;
 				sErrorMessage << "Error while homing : " << nErr;
 				uiex->messageBox("OnStep Homing", sErrorMessage.str().c_str());
+				setHomingButton(uiex, false);
+				m_bHoming = false;
 				return;
 			}
 			if(!bComplete) {
+				getProgress(c);
+				ssTmp <<  "Homing " << c;
+				uiex->setText("homingProgress",ssTmp.str().c_str());
 				return;
 			}
 			// enable buttons
-			uiex->setEnabled("pushButtonOK",true);
-			uiex->setEnabled("pushButtonCancel", true);
-			uiex->setText("pushButton", "Calibrate");
-			uiex->setEnabled("pushButton_2", true);
-			uiex->setEnabled("pushButton_3", true);
+			setHomingButton(uiex, true);
 			m_bHoming = false;
+			uiex->setText("homingProgress","Homing done");
 		}
-		// are we seding the mount to the position to be ser as park ?
+		// Parking
 		if(m_bSettingPark) {
 			nErr = m_OnStep.isSlewToComplete(bComplete);
 			if(nErr) {
-				m_bSettingPark = false;
 				sErrorMessage << "Error while parking : " << nErr;
 				uiex->messageBox("OnStep Parking", sErrorMessage.str().c_str());
+				setParkingButton(uiex, true);
+				m_bSettingPark = false;
 				return;
 			}
 			if(!bComplete) {
+				getProgress(c);
+				ssTmp <<  "Slewing to new park position " << c;
+				uiex->setText("parkingProgress",ssTmp.str().c_str());
 				return;
 			}
 			// set the current postion as the park postion
 			m_OnStep.setCurentPosAsPark();
+			setParkingButton(uiex, true);
 			m_bSettingPark = false;
-			uiex->setEnabled("pushButtonOK",true);
-			uiex->setEnabled("pushButtonCancel", true);
-			uiex->setText("pushButton", "Calibrate");
-			uiex->setEnabled("pushButton_3", true);
-			uiex->setText("pushButton_2", "Goto park position and set in mount");
+			uiex->setText("parkingProgress","New parking position set");
 		}
 	}
-
+	// Sync
 	if (!strcmp(pszEvent, "on_pushButton_clicked")) {
 		m_OnStep.syncDate();
 		m_OnStep.syncTime();
@@ -340,42 +352,29 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		uiex->setText("latitude", sLatitude.c_str());
 		uiex->setText("timezone", sTimeZone.c_str());
 	}
-
+	// Home
 	if (!strcmp(pszEvent, "on_pushButton_3_clicked")) {
 		if( m_bHoming) { // Abort
 			// enable buttons
-			uiex->setEnabled("pushButtonOK",true);
-			uiex->setEnabled("pushButtonCancel", true);
-			uiex->setText("pushButton", "Calibrate");
-			uiex->setEnabled("pushButton_2", true);
-			uiex->setText("pushButton_3", "Home mount");
+			setHomingButton(uiex, true);
 		} else {								// home
 			// disable buttons
-			uiex->setEnabled("pushButtonOK",false);
-			uiex->setEnabled("pushButtonCancel", false);
-			uiex->setEnabled("pushButton_2", false);
-			// change "Home mount" to "Abort"
-			uiex->setText("pushButton_3", "Abort");
+			setHomingButton(uiex, false);
 			m_bHoming = true;
 			m_OnStep.homeMount();
+			getProgress(c, true);
+			ssTmp <<  "Homing " << c;
+			uiex->setText("homingProgress",ssTmp.str().c_str());
 		}
 	}
-
+	// Goto new  Park
 	if (!strcmp(pszEvent, "on_pushButton_2_clicked")) {
 		if( m_bSettingPark) { // Abort
 			// enable buttons
-			uiex->setEnabled("pushButtonOK",true);
-			uiex->setEnabled("pushButtonCancel", true);
-			uiex->setText("pushButton", "Calibrate");
-			uiex->setEnabled("pushButton_3", true);
-			uiex->setText("pushButton_2", "Goto park position and set in mount");
+			setParkingButton(uiex, true);
 		} else {								// park
 			// disable buttons
-			uiex->setEnabled("pushButtonOK",false);
-			uiex->setEnabled("pushButtonCancel", false);
-			uiex->setEnabled("pushButton_3", false);
-			// change "Home mount" to "Abort"
-			uiex->setText("pushButton_2", "Abort");
+			setParkingButton(uiex, false);
 			nParkPosIndex = uiex->currentIndex("comboBox");
 			switch(nParkPosIndex) {
 				case 0:
@@ -397,11 +396,56 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 			}
 			nErr = m_OnStep.gotoParkPos(dAlt, dAz);
 			m_bSettingPark = true;
-
+			getProgress(c, true);
+			ssTmp <<  "Slewing to new park position " << c;
+			uiex->setText("parkingProgress",ssTmp.str().c_str());
 		}
 	}
-
+	// Set park to current
+	if (!strcmp(pszEvent, "on_pushButton_4_clicked")) {
+		m_OnStep.setCurentPosAsPark();
+		setParkingButton(uiex, true);
+		m_bSettingPark = false;
+		uiex->setText("parkingProgress","New parking position set");
+	}
 	return;
+}
+
+void X2Mount::setHomingButton(X2GUIExchangeInterface* uiex, bool bEnable)
+{
+	uiex->setEnabled("pushButtonOK",bEnable);
+	uiex->setEnabled("pushButtonCancel", bEnable);
+	uiex->setEnabled("pushButton", bEnable);
+	uiex->setEnabled("pushButton_2", bEnable);
+	uiex->setEnabled("pushButton_4", bEnable);
+	if(bEnable)
+		uiex->setText("pushButton_3", "Home mount");
+	else
+		uiex->setText("pushButton_3", "Abort");
+}
+
+void X2Mount::setParkingButton(X2GUIExchangeInterface* uiex, bool bEnable)
+{
+	uiex->setEnabled("pushButtonOK",bEnable);
+	uiex->setEnabled("pushButtonCancel", bEnable);
+	uiex->setEnabled("pushButton", bEnable);
+	uiex->setEnabled("pushButton_3", bEnable);
+	uiex->setEnabled("pushButton_4", bEnable);
+	uiex->setEnabled("combobox", bEnable);
+	if(bEnable)
+		uiex->setText("pushButton_2", "Goto park position and set in mount");
+	else
+		uiex->setText("pushButton_2", "Abort");
+}
+
+void X2Mount::getProgress(char &c, bool bReset)
+{
+	if(bReset) {
+		m_nProgress_index = 0;
+	}
+	m_nProgress_index = m_nProgress_index % 4;
+	c = m_svProgressState.at(m_nProgress_index);
+	m_nProgress_index++;
 }
 
 #pragma mark - LinkInterface
@@ -775,6 +819,10 @@ bool X2Mount::knowsBeyondThePole()
 int X2Mount::beyondThePole(bool& bYes) {
 	int nErr = SB_OK;
 	X2MutexLocker ml(GetMutex());
+
+	if(!m_bLinked)
+		return ERR_NOLINK;
+
 	// “beyond the pole” =  “telescope west of the pier”,
 	nErr = m_OnStep.IsBeyondThePole(bYes);
 	return nErr;
@@ -785,10 +833,14 @@ double X2Mount::flipHourAngle()
 {
 	int nErr = SB_OK;
 	double dHourAngle = 0.0;
+
+	if(!m_bLinked)
+		return ERR_NOLINK;
+
 	X2MutexLocker ml(GetMutex());
 	nErr = m_OnStep.getflipHourAngle(dHourAngle);
 
-	return dHourAngle;
+	return -dHourAngle;
 }
 
 MountTypeInterface::Type X2Mount::mountType()
@@ -799,6 +851,7 @@ MountTypeInterface::Type X2Mount::mountType()
 int X2Mount::gemLimits(double& dHoursEast, double& dHoursWest)
 {
 	int nErr = SB_OK;
+
 	if(!m_bLinked)
 		return ERR_NOLINK;
 

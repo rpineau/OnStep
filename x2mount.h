@@ -185,6 +185,13 @@ private:
 	MutexInterface							*GetMutex()  {return m_pIOMutex;}
 	TickCountInterface						*GetTickCountInterface() {return m_pTickCount;}
 
+	void 	setHomingButton(X2GUIExchangeInterface* uiex, bool bEnable);
+	void	setParkingButton(X2GUIExchangeInterface* uiex, bool bEnable);
+	
+	void	getProgress(char &c, bool bReset = false);
+	int		m_nProgress_index;
+	std::vector<char>    m_svProgressState = {'|','/','-','\\'};
+
 	// Variables to store Sky X interfaces
 	int m_nPrivateMulitInstanceIndex;
 	SerXInterface*							m_pSerX;
