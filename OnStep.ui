@@ -508,7 +508,7 @@
         </rect>
        </property>
        <property name="text">
-        <string>(a set in Config.h)</string>
+        <string>(as set in Config.h)</string>
        </property>
       </widget>
      </widget>
