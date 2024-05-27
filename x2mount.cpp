@@ -38,6 +38,8 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	{
 		m_bSyncOnConnect = (m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SYNC_TIME, 0) == 0 ? false : true);
 		m_bStopTrackingOnDisconnect = (m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_STOP_TRK, 1) == 0 ? false : true);
+		m_nPortSpeed = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PORT_SPEED, 9600);
+		m_OnStep.setPortSpeed(m_nPortSpeed);
 		m_nSlewRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, 6);
 		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
 		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
@@ -177,6 +179,7 @@ int X2Mount::execModalSettingsDialog(void)
 	X2GUIInterface*					ui = uiutil.X2UI();
 	X2GUIExchangeInterface*			dx = NULL;//Comes after ui is loaded
 	bool bPressedOK = false;
+	int nPortSpeedIndex;
 	std::string sTmp;
 	std::string sTime;
 	std::string sDate;
@@ -229,6 +232,15 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setText("latitude", "");
 		dx->setText("timezone", "");
 	}
+	
+	// what is our port speed
+	nPortSpeedIndex = 0;
+	for(int &i : m_svPortSpeed){
+		if (i == m_nPortSpeed)
+			break;
+		nPortSpeedIndex ++;
+	}
+	dx->setCurrentIndex("comboBox_3", nPortSpeedIndex);
 
 	dx->setEnabled("comboBox_2", true);
 	m_nSlewRateIndex = m_OnStep.getGoToSlewRate();
@@ -247,16 +259,24 @@ int X2Mount::execModalSettingsDialog(void)
 	//Retreive values from the user interface
 	if (bPressedOK) {
 		m_bSyncOnConnect = (dx->isChecked("checkBox")==1?true:false);
-		m_bStopTrackingOnDisconnect = (dx->isChecked("checkBox_2")==1?true:false);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SYNC_TIME, (m_bSyncOnConnect?1:0));
+
+		m_bStopTrackingOnDisconnect = (dx->isChecked("checkBox_2")==1?true:false);
+		m_OnStep.setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_STOP_TRK, (m_bStopTrackingOnDisconnect?1:0));
+
+		nPortSpeedIndex = dx->currentIndex("comboBox_3");
+		m_nPortSpeed = m_svPortSpeed.at(nPortSpeedIndex);
+		m_OnStep.Reconnect(m_nPortSpeed);
+		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_PORT_SPEED, m_nPortSpeed);
+
 		m_nParkPosIndex = dx->currentIndex("comboBox");
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_PARK_POS, m_nParkPosIndex);
-		m_nSlewRateIndex =  dx->currentIndex("comboBox_2");
 
+		m_nSlewRateIndex =  dx->currentIndex("comboBox_2");
 		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, m_nSlewRateIndex);
-		m_OnStep.setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
+
 	}
 	return nErr;
 }

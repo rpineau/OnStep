@@ -3,7 +3,7 @@
 // Constructor for OnStep
 OnStep::OnStep()
 {
-
+	m_nPortSpeed = 9600;
 	m_bIsConnected = false;
 	m_bLimitCached = false;
 	m_dHoursEast = 8.0;
@@ -74,24 +74,11 @@ int OnStep::Connect(std::string sPort)
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [Connect] Trying to connect to port " << sPort<< std::endl;
 	m_sLogFile.flush();
 #endif
+	m_sPort.assign(sPort);
 	m_bIsConnected = false;
 	// 9600 8N1
-	if(m_pSerx->open(sPort.c_str(), 9600, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
+	if(m_pSerx->open(m_sPort.c_str(), m_nPortSpeed, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
 		m_bIsConnected = true;
-
-	/*
-	 // reconnect at 56.7K
-	 nErr = sendCommand("SB1#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
-	 std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
-	 m_pSerx->flushTx();
-	 m_pSerx->purgeTxRx();
-	 m_pSerx->close();
-	 if(m_pSerx->open(sPort.c_str(), 56700, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
-	 m_bIsConnected = true;
-	 else
-	 m_bIsConnected = false;
-	 */
-
 
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
@@ -153,6 +140,24 @@ int OnStep::Disconnect(void)
 	return SB_OK;
 }
 
+void OnStep::Reconnect(int nNewPortSpeed)
+{
+	m_nPortSpeed = nNewPortSpeed;
+	if(m_bIsConnected) {
+		m_pSerx->flushTx();
+		m_pSerx->purgeTxRx();
+		m_pSerx->close();
+		if(m_pSerx->open(m_sPort.c_str(), m_nPortSpeed, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
+			m_bIsConnected = true;
+		else
+			m_bIsConnected = false;
+	}
+}
+
+void OnStep::setPortSpeed(int nPortSpeed)
+{
+	m_nPortSpeed = nPortSpeed;
+}
 
 #pragma mark - OnStep communication
 int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout, char cEndOfResponse, int nExpectedResLen)

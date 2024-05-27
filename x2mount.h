@@ -31,12 +31,13 @@
 #include "OnStep.h"
 
 
-#define PARENT_KEY			"OnStepMount"
-#define CHILD_KEY_PORT_NAME "PortName"
-#define CHILD_KEY_SYNC_TIME "SyncTime"
-#define CHILD_KEY_PARK_POS  "ParkPos"
-#define CHILD_KEY_STOP_TRK  "StopTrackingOnDisconnect"
-#define CHILD_KEY_SLEW_RATE "SlewRate"
+#define PARENT_KEY			 "OnStepMount"
+#define CHILD_KEY_PORT_NAME  "PortName"
+#define CHILD_KEY_PORT_SPEED "PortSpeed"
+#define CHILD_KEY_SYNC_TIME  "SyncTime"
+#define CHILD_KEY_PARK_POS   "ParkPos"
+#define CHILD_KEY_STOP_TRK   "StopTrackingOnDisconnect"
+#define CHILD_KEY_SLEW_RATE  "SlewRate"
 
 #define MAX_PORT_NAME_SIZE 120
 
@@ -205,23 +206,25 @@ private:
 	// Variables for OnStep
 	OnStep m_OnStep;
 
-	bool m_bLinked;
+	bool 	m_bLinked;
 
-	bool m_bSynced;
-	bool m_bParked;
-	bool m_bHoming;
-	bool m_bSettingPark;
+	bool 	m_bSynced;
+	bool 	m_bParked;
+	bool 	m_bHoming;
+	bool 	m_bSettingPark;
 
-	int m_nParkPosIndex;
-	bool m_bSyncOnConnect;
-	int m_nSlewRateIndex;
-	bool m_bStopTrackingOnDisconnect;
+	int 	m_nParkPosIndex;
+	bool 	m_bSyncOnConnect;
+	int 	m_nSlewRateIndex;
+	bool 	m_bStopTrackingOnDisconnect;
 
-	char m_PortName[MAX_PORT_NAME_SIZE];
-
-	int m_CurrentRateIndex;
+	char 	m_PortName[MAX_PORT_NAME_SIZE];
+	int		m_nPortSpeed;
+	int 	m_CurrentRateIndex;
 
 	void getPortName(std::string &sPortName) const;
+
+	std::vector<int>    m_svPortSpeed = {9600, 19200, 57600, 115200, 230400, 460800 };
 
 };
 

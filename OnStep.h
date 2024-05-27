@@ -60,7 +60,10 @@ public:
 
 	int Connect(std::string sPort);
 	int Disconnect();
+	void Reconnect(int nNewPortSpeed);
 	bool isConnected() const { return m_bIsConnected; }
+	
+	void setPortSpeed(int nPortSpeed);
 
 	void setSerxPointer(SerXInterface *p) { m_pSerx = p; }
 	void setTSX(TheSkyXFacadeForDriversInterface *pTSX) { m_pTsx = pTSX;};
@@ -126,6 +129,9 @@ private:
 	TheSkyXFacadeForDriversInterface    *m_pTsx;
 
 	bool    m_bIsConnected;                               // Connected to the mount?
+	int		m_nPortSpeed;
+	std::string	m_sPort;
+
 	std::string m_sFirmwareVersion;
 	double  m_dRa;
 	double  m_dDec;
