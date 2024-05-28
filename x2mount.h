@@ -44,10 +44,12 @@
 #define DEF_PORT_NAME		"No port found"
 
 #if defined(WIN32)
-class X2Mount : public MountDriverInterface
+#define __CLASS_ATTRIBUTE__(x)
 #else
-class __attribute__((weak,visibility("default"))) X2Mount : public MountDriverInterface
+#define __CLASS_ATTRIBUTE__(x) __attribute__(x)
 #endif
+
+class __CLASS_ATTRIBUTE__((weak,visibility("default"))) X2Mount : public MountDriverInterface
 						,public SyncMountInterface
 						,public SlewToInterface
                         ,public AsymmetricalEquatorialInterface
