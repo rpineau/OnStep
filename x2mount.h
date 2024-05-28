@@ -219,8 +219,6 @@ private:
 	bool 	m_bSyncOnConnect;
 	int 	m_nSlewRateIndex;
 	bool 	m_bStopTrackingOnDisconnect;
-
-	char 	m_PortName[MAX_PORT_NAME_SIZE];
 	int		m_nPortSpeed;
 	int 	m_CurrentRateIndex;
 
