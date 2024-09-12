@@ -76,12 +76,17 @@ int OnStep::Connect(std::string sPort)
 #endif
 	m_sPort.assign(sPort);
 	m_bIsConnected = false;
-	// 9600 8N1
-	if(m_pSerx->open(m_sPort.c_str(), m_nPortSpeed, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1") == 0)
-		m_bIsConnected = true;
 
-	if(!m_bIsConnected)
-		return ERR_COMMNOLINK;
+	if (!m_pSerx->isConnected()) {
+		nErr = m_pSerx->open(m_sPort.c_str(), m_nPortSpeed, SerXInterface::B_NOPARITY);
+		if(nErr == 0) {
+			m_bIsConnected = true;
+		}
+		else
+			m_bIsConnected = false;
+	}
+	else
+		m_bIsConnected = true;
 
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
