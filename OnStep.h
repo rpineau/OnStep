@@ -128,51 +128,51 @@ private:
 	SerXInterface                       *m_pSerx;
 	TheSkyXFacadeForDriversInterface    *m_pTsx;
 
-	bool    m_bIsConnected;                               // Connected to the mount?
-	int		m_nPortSpeed;
+	bool    m_bIsConnected = false;                               // Connected to the mount?
+	int		m_nPortSpeed = 9600;
 	std::string	m_sPort;
 
 	std::string m_sFirmwareVersion;
-	double  m_dRa;
-	double  m_dDec;
-	double  m_dAlt;
-	double  m_dAz;
+	double  m_dRa = 0;
+	double  m_dDec = 0;
+	double  m_dAlt = 0;
+	double  m_dAz = 270.00;
 
-	bool    m_bSyncLocationDataConnect;
-	bool    m_bHomeOnUnpark;
-	bool	m_bIsHoming;
-	bool    m_bIsAtHome;
-	bool    m_bIsParked;
-	bool	m_bIsTracking;
-	bool	m_bIsParking;
-	bool	m_bIsSlewing;
-	int     m_nNbHomingTries;
-	bool    m_bStopTrackingOnDisconnect;
-	int		m_nTrackRate;
-	int		m_nSideOfPier;
-	int     m_nGoToSlewRate;
+	bool    m_bSyncLocationDataConnect = false;
+	bool    m_bHomeOnUnpark = false;
+	bool	m_bIsHoming = false;
+	bool    m_bIsAtHome = false;
+	bool    m_bIsParked = false;
+	bool	m_bIsTracking = false;
+	bool	m_bIsParking = false;
+	bool	m_bIsSlewing = false;
+	int     m_nNbHomingTries = 0;
+	bool    m_bStopTrackingOnDisconnect = false;
+	int		m_nTrackRate = 0;
+	int		m_nSideOfPier = 0;
+	int     m_nGoToSlewRate = 0;
 
-	double m_dRaRateArcSecPerSec;
-	double m_dDecRateArcSecPerSec;
+	double m_dRaRateArcSecPerSec = 0;
+	double m_dDecRateArcSecPerSec = 0;
 
-	double  m_dParkAz;
-	double  m_dParkAlt;
+	double  m_dParkAz = 270.00;
+	double  m_dParkAlt = 0;
 
-	bool    m_bSyncDone;
-	int		m_nAlignementStars;
+	bool    m_bSyncDone = false;
+	int		m_nAlignementStars = 0;
 
 	std::string     m_sTime;
 	std::string     m_sDate;
 
-	double  m_dGotoRATarget;						  // Current Target RA;
-	double  m_dGotoDECTarget;                      // Current Goto Target Dec;
+	double  m_dGotoRATarget = 0;						  // Current Target RA;
+	double  m_dGotoDECTarget = 0;                      // Current Goto Target Dec;
 
 	MountDriverInterface::MoveDir      m_nOpenLoopDir;
 
 	// limits don't change mid-course so we cache them
-	bool    m_bLimitCached;
-	double  m_dHoursEast;
-	double  m_dHoursWest;
+	bool    m_bLimitCached = false;
+	double  m_dHoursEast = 8.0;
+	double  m_dHoursWest = 8.0;
 
 	int     sendCommand(const std::string sCmd, std::string &sResp, int nTimeout = MAX_TIMEOUT, char cEndOfResponse = '#', int nExpectedResLen = 1);
 	int     readResponse(std::string &sResp, int nTimeout = MAX_TIMEOUT, char cEndOfResponse = '#', int nExpectedResLen = 1);
