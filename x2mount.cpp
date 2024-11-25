@@ -428,6 +428,11 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		m_bSettingPark = false;
 		uiex->setText("parkingProgress","New parking position set");
 	}
+	if (!strcmp(pszEvent, "on_pushButton_5_clicked")) {
+		m_nSlewRateIndex =  uiex->currentIndex("comboBox_2");
+		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
+		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, m_nSlewRateIndex);
+	}
 	return;
 }
 
@@ -858,7 +863,7 @@ double X2Mount::flipHourAngle()
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_OnStep.getflipHourAngle(dHourAngle);
+	// nErr = m_OnStep.getflipHourAngle(dHourAngle);
 
 	return -dHourAngle;
 }

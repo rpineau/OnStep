@@ -87,6 +87,8 @@ int OnStep::Connect(std::string sPort)
 		m_bIsConnected = false;
 
 	}
+	setSlewRate(m_nGoToSlewRate);
+
 	return nErr;
 }
 
@@ -578,7 +580,7 @@ int OnStep::setTarget(double dRa, double dDec)
 #endif
 	// set target Ra
 	ssTmp<<":Sr"<<sTemp<<"#";
-	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
+	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	if(sResp.size() && sResp.at(0)=='1') {
 		nErr = PLUGIN_OK;
@@ -601,7 +603,7 @@ int OnStep::setTarget(double dRa, double dDec)
 	std::stringstream().swap(ssTmp);
 	// set target Dec
 	ssTmp<<":Sd"<<sTemp<<"#";
-	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
+	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	if(sResp.size() && sResp.at(0)=='1')
 		nErr = PLUGIN_OK;
@@ -629,7 +631,7 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 	m_sLogFile.flush();
 #endif
 
-	// convert Az value to DDD*MM:SS.S
+	// convert Az value to DDD*MM:SS
 	convertDecAzToDDMMSSs(dAz, sTemp);
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -638,14 +640,14 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 #endif
 	// set target Az
 	ssTmp<<":Sz"<<sTemp<<"#";
-	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
+	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	if(nErr)
 		return nErr;
 
 
-	// convert Alt value sDD*MM:SS.SSS
-	convertDecDegToDDMMSS_ForDecl(dAlt, sTemp);
+	// convert Alt value sDD:MM:SS.SSS
+	convertDecDegToDDMMSS_ForAlt(dAlt, sTemp);
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "]  szTemp(Alt)  : " <<sTemp << std::endl;
@@ -654,7 +656,7 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 	// set target Alt
 	std::stringstream().swap(ssTmp);
 	ssTmp<<":Sa"<<sTemp<<"#";
-	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
+	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	if(nErr)
 		return nErr;
@@ -945,6 +947,9 @@ int OnStep::setSlewRate(int nRate)
 void OnStep::setGoToSlewRate(int nRate)
 {
 	m_nGoToSlewRate = nRate;
+	if(m_bIsConnected) {
+		setSlewRate(m_nGoToSlewRate);
+	}
 }
 
 int OnStep::getGoToSlewRate()
@@ -971,7 +976,6 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	if(nErr)
 		return nErr;
 
-	setSlewRate(m_nGoToSlewRate);
 	nErr = slewTargetRaDecEpochNow();
 	if(nErr) {
 #if defined PLUGIN_DEBUG
@@ -996,7 +1000,7 @@ int OnStep::slewTargetRaDecEpochNow()
 	m_sLogFile.flush();
 #endif
 	
-	nErr = sendCommand(":MS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
+	nErr = sendCommand(":MS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
 		nErr = PLUGIN_OK;
 	else if(nErr) {
@@ -1073,7 +1077,7 @@ int OnStep::slewTargetAltAszEpochNow()
 	m_sLogFile.flush();
 #endif
 
-	nErr = sendCommand(":MA#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // this command doesn't follow the usual format and doesn't end with #
+	nErr = sendCommand(":MA#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
 		nErr = PLUGIN_OK;
 	else if(nErr) {
@@ -1206,7 +1210,7 @@ int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned 
 			sCmd = ":Mw#";
 			break;
 	}
-	nErr = sendCommand(sCmd, sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // this command doesn't follow the usual format and doesn't end with #
+	nErr = sendCommand(sCmd, sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
 	return nErr;
 }
 
@@ -1222,16 +1226,16 @@ int OnStep::stopOpenLoopMove()
 
 	switch(m_nOpenLoopDir){
 		case MountDriverInterface::MD_NORTH:
-			nErr = sendCommand(":Qn#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // this command doesn't follow the usual format and doesn't end with #
+			nErr = sendCommand(":Qn#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
 			break;
 		case MountDriverInterface::MD_SOUTH:
-			nErr = sendCommand(":Qs#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // this command doesn't follow the usual format and doesn't end with #
+			nErr = sendCommand(":Qs#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
 			break;
 		case MountDriverInterface::MD_EAST:
-			nErr = sendCommand(":Qe#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // this command doesn't follow the usual format and doesn't end with #
+			nErr = sendCommand(":Qe#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
 			break;
 		case MountDriverInterface::MD_WEST:
-			nErr = sendCommand(":Qw#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // this command doesn't follow the usual format and doesn't end with #
+			nErr = sendCommand(":Qw#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
 			break;
 	}
 
@@ -1301,10 +1305,11 @@ int OnStep::gotoParkPos(double dAlt, double dAz)
 #endif
 		return nErr;
 	}
-	nErr = m_pTsx->HzToEq(dAz, dAlt, dRa, dDec);
+	
+	// nErr = m_pTsx->HzToEq(dAz, dAlt, dRa, dDec);
 
 	// go to park coordinate
-	nErr = setTarget(dRa, dDec);
+	nErr = setTargetAltAz(dAlt, dAz);
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setTargetAltAz error " << nErr << std::endl;
@@ -1314,7 +1319,7 @@ int OnStep::gotoParkPos(double dAlt, double dAz)
 	}
 
 
-	nErr = slewTargetRaDecEpochNow();
+	nErr = slewTargetAltAszEpochNow();
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] slewTargetAltAszEpochNow error " << nErr << std::endl;
@@ -2004,7 +2009,7 @@ void OnStep::convertDecAzToDDMMSSs(double dDeg, std::string &sResult)
 	ss = (mm*60) - MM;
 	SS = ss*60;
 
-	ssTmp << std::setfill('0') << std::setw(3) << DD << "*" << std::setfill('0') << std::setw(2) << MM << "'" << std::setfill('0') << std::setw(6) << std::fixed << std::setprecision(3) << SS;
+	ssTmp << std::setfill('0') << std::setw(3) << DD << "*" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(2) << std::fixed << std::setprecision(0) << SS;
 	sResult.assign(ssTmp.str());
 }
 
@@ -2034,6 +2039,34 @@ void OnStep::convertDecDegToDDMMSS_ForDecl(double dDeg, std::string &sResult)
 	ssTmp << cSign << std::setfill('0') << std::setw(2) << DD << "*" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(6) << std::fixed << std::setprecision(3)<< SS;
 	sResult.assign(ssTmp.str());
 }
+
+void OnStep::convertDecDegToDDMMSS_ForAlt(double dAlt, std::string &sResult)
+{
+	int DD, MM;
+	double mm, ss, SS;
+	double dNewAlt;
+	char cSign;
+	std::stringstream ssTmp;
+
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+	m_sLogFile.flush();
+#endif
+
+	sResult.clear();
+	// convert dDeg decimal value to sDD:MM:SS
+	dNewAlt = std::fabs(dAlt);
+	cSign = dNewAlt>=0?'+':'-';
+	DD = int(dNewAlt);
+	mm = dNewAlt - DD;
+	MM = int(mm*60);
+	ss = (mm*60) - MM;
+	SS = ss*60;
+
+	ssTmp << cSign << std::setfill('0') << std::setw(2) << DD << "*" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(2) << std::fixed << std::setprecision(0)<< SS;
+	sResult.assign(ssTmp.str());
+}
+
 
 int OnStep::convertDDMMSSToDecDeg(const std::string sStrDeg, double &dDecDeg)
 {

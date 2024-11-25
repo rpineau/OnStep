@@ -511,6 +511,19 @@
         <string>(as set in Config.h)</string>
        </property>
       </widget>
+      <widget class="QPushButton" name="pushButton_5">
+       <property name="geometry">
+        <rect>
+         <x>296</x>
+         <y>176</y>
+         <width>100</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Apply</string>
+       </property>
+      </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_3">
       <property name="geometry">
