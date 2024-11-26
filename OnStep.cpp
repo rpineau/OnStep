@@ -88,7 +88,7 @@ int OnStep::Connect(std::string sPort)
 
 	}
 	setSlewRate(m_nGoToSlewRate);
-
+	unPark();
 	return nErr;
 }
 
