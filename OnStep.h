@@ -39,7 +39,7 @@ enum OnStepSideOfPier {WEST, EAST};
 #define ERR_PARSE   1
 
 #define PLUGIN_NB_SLEW_SPEEDS 10
-#define INTER_COMMAND_DELAY_SECONDS     0.150
+#define NO_RESPONSE_COMMAND_DELAY_MS     100
 #define SHORT_RESPONSE  0x04   // EOT
 
 #define SmallestFloat               0.0000005F

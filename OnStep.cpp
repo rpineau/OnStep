@@ -160,12 +160,15 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 		return nErr;
 	}
 	// read response
-	if(nTimeout == 0) // no response expected
+	if(nTimeout == 0) {// no response expected
+		std::this_thread::sleep_for(std::chrono::milliseconds(NO_RESPONSE_COMMAND_DELAY_MS));
 		return nErr;
+	}
 	// no response expected
-	if(cEndOfResponse == SHORT_RESPONSE && nExpectedResLen==0)
+	if(cEndOfResponse == SHORT_RESPONSE && nExpectedResLen==0) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(NO_RESPONSE_COMMAND_DELAY_MS));
 		return nErr;
-
+	}
 	nErr = readResponse(sResp, nTimeout, cEndOfResponse, nExpectedResLen);
 	if(nErr) {
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -971,6 +974,8 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	if(nErr)
 		return nErr;
 
+	setSlewRate(m_nGoToSlewRate);
+	
 	// set sync target coordinate
 	nErr = setTarget(dRa, dDec);
 	if(nErr)
