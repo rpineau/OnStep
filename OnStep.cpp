@@ -88,7 +88,7 @@ int OnStep::Connect(std::string sPort)
 
 	}
 	setSlewRate(m_nGoToSlewRate);
-	unPark();
+	// unPark();
 	return nErr;
 }
 
@@ -973,6 +973,9 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	nErr = isAligned(bAligned);
 	if(nErr)
 		return nErr;
+
+	if(!m_bIsTracking)
+		unPark();
 
 	setSlewRate(m_nGoToSlewRate);
 	
