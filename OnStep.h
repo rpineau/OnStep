@@ -24,9 +24,9 @@
 
 #include "StopWatch.h"
 
-#define PLUGIN_VERSION 1.100
+#define PLUGIN_VERSION 1.110
 
-#define PLUGIN_DEBUG 2   // define this to have log files, 1 = bad stuff only, 2 and up.. full debug
+// #define PLUGIN_DEBUG 2   // define this to have log files, 1 = bad stuff only, 2 and up.. full debug
 
 enum OnStepErrors {PLUGIN_OK=0, NOT_CONNECTED, PLUGIN_CANT_CONNECT, PLUGIN_BAD_CMD_RESPONSE, COMMAND_FAILED, PLUGIN_ERROR, COMMAND_TIMEOUT};
 enum OnStepTrackRate {NOT_TRACKING, SIDEREAL, LUNAR, SOLAR, KING, TRACKING_OTHER};

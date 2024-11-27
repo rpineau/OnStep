@@ -761,8 +761,8 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 #endif
 		m_dRaRateArcSecPerSec = 0.0;
 		m_dDecRateArcSecPerSec = 0.0;
-		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 		nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
+		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 	}
 	// Lunar
 	else if (0.30 < dRaRateArcSecPerSec && dRaRateArcSecPerSec < 0.83 && -0.25 < dDecRateArcSecPerSec && dDecRateArcSecPerSec < 0.25) {
@@ -772,8 +772,8 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 #endif
 		m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
 		m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
-		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 		nErr = sendCommand(":TL#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Lunar rate
+		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 	}
 	// solar
 	else if (0.037 < dRaRateArcSecPerSec && dRaRateArcSecPerSec < 0.043 && -0.017 < dDecRateArcSecPerSec && dDecRateArcSecPerSec < 0.017) {
@@ -783,8 +783,8 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 #endif
 		m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
 		m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
-		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 		nErr = sendCommand(":TS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Solar rate
+		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 	}
 	// default to sidereal
 	else {
@@ -794,8 +794,8 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 #endif
 		m_dRaRateArcSecPerSec = 0.0;
 		m_dDecRateArcSecPerSec = 0.0;
-		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 		nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
+		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 	}
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -942,6 +942,11 @@ int OnStep::setSlewRate(int nRate)
 	if(nRate>(PLUGIN_NB_SLEW_SPEEDS-1))
 		return COMMAND_FAILED;
 
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+	m_sLogFile.flush();
+#endif
+
 	ssCmd << ":R" << nRate << "#";
 	nErr = sendCommand(ssCmd.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
 	return nErr;
@@ -974,11 +979,6 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	if(nErr)
 		return nErr;
 
-	if(!m_bIsTracking)
-		unPark();
-
-	setSlewRate(m_nGoToSlewRate);
-	
 	// set sync target coordinate
 	nErr = setTarget(dRa, dDec);
 	if(nErr)
@@ -1175,12 +1175,6 @@ int OnStep::getRateName(int nZeroBasedIndex, std::string &sOut)
 	return PLUGIN_OK;
 }
 
-int OnStep::setSlewSpeed(int nSlewRateIndex)
-{
-	int nErr = PLUGIN_OK;
-
-	return nErr;
-}
 int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned int nRate)
 {
 	int nErr = PLUGIN_OK;
