@@ -24,23 +24,24 @@
 
 #include "StopWatch.h"
 
-#define PLUGIN_VERSION 1.110
+#define PLUGIN_VERSION 1.150
 
-// #define PLUGIN_DEBUG 2   // define this to have log files, 1 = bad stuff only, 2 and up.. full debug
+// #define PLUGIN_DEBUG 3   // define this to have log files, 1 = bad stuff only, 2 and up.. full debug
 
 enum OnStepErrors {PLUGIN_OK=0, NOT_CONNECTED, PLUGIN_CANT_CONNECT, PLUGIN_BAD_CMD_RESPONSE, COMMAND_FAILED, PLUGIN_ERROR, COMMAND_TIMEOUT};
 enum OnStepTrackRate {NOT_TRACKING, SIDEREAL, LUNAR, SOLAR, KING, TRACKING_OTHER};
 enum OnStepSideOfPier {WEST, EAST};
 
-#define SERIAL_BUFFER_SIZE 256
-#define MAX_TIMEOUT 2000            // WiFi  on tht OnStep can take up to 1600 ms to respond !!!
-#define MAX_READ_WAIT_TIMEOUT 25
-#define ND_LOG_BUFFER_SIZE 256
-#define ERR_PARSE   1
+#define SERIAL_BUFFER_SIZE 		256
+#define MAX_TIMEOUT 			2000	// WiFi on the OnStep can take up to 1600 ms to respond !!!
+#define MAX_READ_WAIT_TIMEOUT 	25
+#define ND_LOG_BUFFER_SIZE 		256
+#define ERR_PARSE   			1
 
-#define PLUGIN_NB_SLEW_SPEEDS 10
-#define NO_RESPONSE_COMMAND_DELAY_MS     100
-#define SHORT_RESPONSE  0x04   // EOT
+#define INTER_COMMAND_WAIT				100 //ms
+#define PLUGIN_NB_SLEW_SPEEDS 			10
+#define NO_RESPONSE_COMMAND_DELAY_MS	100
+#define SHORT_RESPONSE  				0x04   // EOT
 
 #define SmallestFloat               0.0000005F
 #define SIDEREAL_RATE_HZ            60.16427456104770L
@@ -206,6 +207,11 @@ private:
 
 	std::vector<std::string>    m_svSlewRateNames = {"0.25x", "0.5x", "1x (Guide)", "2x", "4x (Centering)", "8x (Move)", "24x (Slew)", "48x", "Half-Max", "Max" };
 
+	std::string&    trim(std::string &str, const std::string &filter );
+	std::string&    ltrim(std::string &str, const std::string &filter);
+	std::string&    rtrim(std::string &str, const std::string &filter);
+
+	
 	CStopWatch  m_commandDelayTimer;
 
 #ifdef PLUGIN_DEBUG

@@ -143,8 +143,26 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 	int nErr = PLUGIN_OK;
 	unsigned long  ulBytesWrite;
 	std::vector<std::string> vFieldsData;
+	int nBytesWaiting;
+	int dDelayMs;
 
-	m_pSerx->purgeTxRx();
+	if(m_commandDelayTimer.GetElapsedSeconds()<INTER_COMMAND_WAIT) {
+		dDelayMs = INTER_COMMAND_WAIT - int(m_commandDelayTimer.GetElapsedSeconds() *1000);
+		if(dDelayMs>0)
+			std::this_thread::sleep_for(std::chrono::milliseconds(dDelayMs));
+			std::this_thread::yield();
+	}
+
+	
+	nErr = m_pSerx->bytesWaitingRx(nBytesWaiting);
+	if(nBytesWaiting) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [nBytesWaiting] calling purgeTxR"<< std::endl;
+		m_sLogFile.flush();
+#endif
+		m_pSerx->purgeTxRx();
+	}
+
 	sResp.clear();
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -153,6 +171,7 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 #endif
 
 	nErr = m_pSerx->writeFile((void *)sCmd.c_str(), sCmd.size(), ulBytesWrite);
+	m_commandDelayTimer.Reset();
 	m_pSerx->flushTx();
 	if(nErr) {
 		if(nErr == ERR_TXTIMEOUT)
@@ -237,7 +256,7 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 
 		if (ulBytesRead != nBytesWaiting) { // timeout
 #if defined PLUGIN_DEBUG
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] rreadFile Timeout Error." << std::endl;
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile Timeout Error." << std::endl;
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile nBytesWaiting : " << nBytesWaiting << std::endl;
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile ulBytesRead   : " << ulBytesRead << std::endl;
 			m_sLogFile.flush();
@@ -246,20 +265,31 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 
 		ulTotalBytesRead += ulBytesRead;
 		pszBufPtr+=ulBytesRead;
-		// respnse not ending with the normal end of response char.
-		if(cEndOfResponse == SHORT_RESPONSE && ulTotalBytesRead == nExpectedResLen)
+		// response not ending with the normal end of response char.
+		if(cEndOfResponse == SHORT_RESPONSE && ulTotalBytesRead >= nExpectedResLen) // NYX adds \r\n
 			break;
+#if defined PLUGIN_DEBUG
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] pszBuf : "  << pszBuf <<  std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-1) : "  <<  *(pszBufPtr-1) <<  std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-2) : "  << *(pszBufPtr-2) <<  std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-3) : "  << *(pszBufPtr-3) <<  std::endl;
+		m_sLogFile.flush();
+#endif
+		// NYX hack
+		if(ulTotalBytesRead >= 3) {
+			if (*(pszBufPtr-2) == cEndOfResponse || *(pszBufPtr-3) == cEndOfResponse)
+				break;
+		}
 
-	}  while (ulTotalBytesRead < SERIAL_BUFFER_SIZE  && *(pszBufPtr-1) != '#');
+	}  while (ulTotalBytesRead < SERIAL_BUFFER_SIZE  && *(pszBufPtr-1) != cEndOfResponse);
 
 	if(!ulTotalBytesRead) {
 		nErr = COMMAND_TIMEOUT; // we didn't get an answer.. so timeout
 	}
-	else if(*(pszBufPtr-1) == '#')
-		*(pszBufPtr-1) = 0; //remove the #
-
-	if(ulTotalBytesRead)
+	if(ulTotalBytesRead) {
 		sResp.assign(pszBuf);
+		sResp = trim(sResp,"\n\r#");
+	}
 	else
 		sResp.clear();
 
@@ -428,8 +458,6 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 #endif
 	m_dRa = dRa;
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
-	std::this_thread::yield();
 	// get DEC
 	nErr = sendCommand(":GDH#", sResp);
 	if(nErr) {
@@ -520,8 +548,6 @@ int OnStep::getAltAndAz(double &dAlt, double &dAz)
 	m_sLogFile.flush();
 #endif
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
-
 	// get Alt
 	nErr = sendCommand(":GAH#", sResp);
 	if(nErr) {
@@ -584,7 +610,6 @@ int OnStep::setTarget(double dRa, double dDec)
 	// set target Ra
 	ssTmp<<":Sr"<<sTemp<<"#";
 	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	if(sResp.size() && sResp.at(0)=='1') {
 		nErr = PLUGIN_OK;
 	}
@@ -607,7 +632,6 @@ int OnStep::setTarget(double dRa, double dDec)
 	// set target Dec
 	ssTmp<<":Sd"<<sTemp<<"#";
 	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	if(sResp.size() && sResp.at(0)=='1')
 		nErr = PLUGIN_OK;
 	else if(nErr) {
@@ -644,7 +668,6 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 	// set target Az
 	ssTmp<<":Sz"<<sTemp<<"#";
 	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	if(nErr)
 		return nErr;
 
@@ -660,7 +683,6 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 	std::stringstream().swap(ssTmp);
 	ssTmp<<":Sa"<<sTemp<<"#";
 	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	if(nErr)
 		return nErr;
 
@@ -1347,7 +1369,6 @@ int OnStep::gotoPark()
 	m_bIsParking = false;
 
 	nErr = sendCommand(":hP#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
 	if(!nErr)
 		m_bIsParking = true;
@@ -1467,7 +1488,6 @@ int OnStep::isUnparkDone(bool &bComplete)
 #endif
 
 	setTrackingRates(true, true, 0.0, 0.0);
-	std::this_thread::sleep_for(std::chrono::milliseconds(50)); // need to give time to the mount to process the command
 
 	isTrackingOn(bTrackingOn);
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -1624,7 +1644,6 @@ int OnStep::syncTime()
 
 	ssTmp << ":SL" << std::setfill('0') << std::setw(2) << h << ":" << std::setfill('0') << std::setw(2) << min << ":" << std::setfill('0') << std::setw(2) << int(sec) << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	getLocalTime(m_sTime);
 
 	return nErr;
@@ -1650,7 +1669,6 @@ int OnStep::syncDate()
 
 	ssTmp << ":SC" << std::setfill('0') << std::setw(2) << mm << "/" << std::setfill('0') << std::setw(2) << dd << "/" << std::setfill('0') << std::setw(2) << yy << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 	getLocalDate(m_sDate);
 	return nErr;
 }
@@ -1669,8 +1687,6 @@ int OnStep::setSiteLongitude(const std::string sLongitude)
 	// :SgsDDD*MM#
 	ssTmp << ":Sg" << sLongitude << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
-
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
@@ -1694,7 +1710,6 @@ int OnStep::setSiteLatitude(const std::string sLatitude)
 	// :StsDD*MM#
 	ssTmp << ":St" << sLatitude << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
 	if(nErr) {
 #if defined PLUGIN_DEBUG
@@ -1719,7 +1734,6 @@ int OnStep::setSiteTimezone(const std::string sTimezone)
 #endif
 	ssTmp << ":SG" << sTimezone << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
 	if(nErr) {
 #if defined PLUGIN_DEBUG
@@ -1868,19 +1882,14 @@ int OnStep::setSiteData(double dLongitude, double dLatitute, double dTimeZone)
 	m_sLogFile.flush();
 #endif
 	nErr = setSiteLongitude(sLong);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
 	nErr |= setSiteLatitude(sLat);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
 	nErr |= setSiteTimezone(ssTimeZone.str());
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
 	nErr |= syncDate();
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
 	nErr |= syncTime();
-	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // need to give time to the mount to process the command
 
 	if(nErr) {
 #if defined PLUGIN_DEBUG
@@ -2251,6 +2260,23 @@ int OnStep::parseFields(const std::string sIn, std::vector<std::string> &svField
 		nErr = ERR_PARSE;
 	}
 	return nErr;
+}
+
+std::string& OnStep::trim(std::string &str, const std::string& filter )
+{
+	return ltrim(rtrim(str, filter), filter);
+}
+
+std::string& OnStep::ltrim(std::string& str, const std::string& filter)
+{
+	str.erase(0, str.find_first_not_of(filter));
+	return str;
+}
+
+std::string& OnStep::rtrim(std::string& str, const std::string& filter)
+{
+	str.erase(str.find_last_not_of(filter) + 1);
+	return str;
 }
 
 #ifdef PLUGIN_DEBUG
