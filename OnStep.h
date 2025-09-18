@@ -43,15 +43,6 @@ enum OnStepSideOfPier {WEST, EAST};
 #define NO_RESPONSE_COMMAND_DELAY_MS	100
 #define SHORT_RESPONSE  				0x04   // EOT
 
-#define SmallestFloat               0.0000005F
-#define SIDEREAL_RATE_HZ            60.16427456104770L
-#define hzToSidereal(x)             ((x)/(double)SIDEREAL_RATE_HZ)
-#define siderealToHz(x)             ((x)*(double)SIDEREAL_RATE_HZ)
-#define fequal(x,y)                 (fabs((x)-(y))<SmallestFloat)
-#define fgt(x,y)                    ((x)-(y)>SmallestFloat)
-
-#define TSX_ARCSEC_SEC				15.0410681
-
 // Define Class for Astrometric Instruments OnStep controller.
 class OnStep
 {

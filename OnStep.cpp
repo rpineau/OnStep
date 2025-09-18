@@ -270,9 +270,12 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 			break;
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] pszBuf : "  << pszBuf <<  std::endl;
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-1) : "  <<  *(pszBufPtr-1) <<  std::endl;
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-2) : "  << *(pszBufPtr-2) <<  std::endl;
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-3) : "  << *(pszBufPtr-3) <<  std::endl;
+		if(ulBytesRead>1)
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-1) : "  <<  *(pszBufPtr-1) <<  std::endl;
+		if(ulBytesRead>2)
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-2) : "  << *(pszBufPtr-2) <<  std::endl;
+		if(ulBytesRead>3)
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-3) : "  << *(pszBufPtr-3) <<  std::endl;
 		m_sLogFile.flush();
 #endif
 		// NYX hack
