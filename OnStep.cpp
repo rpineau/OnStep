@@ -1645,7 +1645,7 @@ int OnStep::syncTime()
 
 	m_pTsx->localDateTime(yy, mm, dd, h, min, sec, dst);
 
-	ssTmp << ":SL" << std::setfill('0') << std::setw(2) << h << ":" << std::setfill('0') << std::setw(2) << min << ":" << std::setfill('0') << std::setw(2) << int(sec) << "#";
+	ssTmp << ":SL" << std::setfill('0') << std::setw(2) << h << ":" << std::setfill('0') << std::setw(2) << min << ":" << std::setfill('0') << std::setw(6) << std::fixed << std::setprecision(3) << sec << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
 	getLocalTime(m_sTime);
 
@@ -1758,7 +1758,7 @@ int OnStep::getSiteLongitude(std::string &sLongitude)
 	m_sLogFile.flush();
 #endif
 
-	nErr = sendCommand(":Gg#", sResp);
+	nErr = sendCommand(":GgH#", sResp);
 	if(!nErr) {
 		sLongitude.assign(sResp);
 	}
@@ -1783,7 +1783,7 @@ int OnStep::getSiteLatitude(std::string &sLatitude)
 	m_sLogFile.flush();
 #endif
 
-	nErr = sendCommand(":Gt#", sResp);
+	nErr = sendCommand(":GtH#", sResp);
 	if(!nErr) {
 		sLatitude.assign(sResp);
 	}
@@ -1936,7 +1936,7 @@ int OnStep::getLocalTime(std::string &sTime)
 	m_sLogFile.flush();
 #endif
 
-	nErr = sendCommand(":GL#", sResp);
+	nErr = sendCommand(":GLH#", sResp);
 	if(nErr) {
 #if defined PLUGIN_DEBUG
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
