@@ -210,7 +210,7 @@ int X2Mount::execModalSettingsDialog(void)
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
 		if(!nErr) {
-			sTmp =sDate + " - " + sTime;
+			sTmp = sDate + " - " + sTime.substr(0,8);
 			dx->setText("time_date", sTmp.c_str());
 		}
 		m_OnStep.getSiteData(sLongitude, sLatitude, sTimeZone);
@@ -304,7 +304,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
 		if(!nErr) {
-			sTmp =sDate + " - " + sTime;
+			sTmp = sDate + " - " + sTime.substr(0,8);
 			uiex->setText("time_date", sTmp.c_str());
 		}
 		// Homing
@@ -358,7 +358,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
 		if(!nErr) {
-			sTmp =sDate + " - " + sTime;
+			sTmp =sDate + " - " + sTime.substr(0,8);
 			uiex->setText("time_date", sTmp.c_str());
 		}
 
