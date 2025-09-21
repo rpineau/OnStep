@@ -1998,7 +1998,7 @@ void OnStep::convertDecDegToDDMMSS(double dDeg, std::string &sResult)
 	ss = (mm*60) - MM;
 	SS = int(std::round(ss*60));
 
-	ssTmp << cSign << DD << "*" << std::setfill('0') << std::setw(2) << MM << "'" << std::setfill('0') << std::setw(2) << SS;
+	ssTmp << cSign << DD << "*" << std::setfill('0') << std::setw(2) << MM << ":" << std::setfill('0') << std::setw(2) << SS;
 	sResult.assign(ssTmp.str());
 }
 
