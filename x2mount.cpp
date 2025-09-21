@@ -170,6 +170,12 @@ int X2Mount::rateIndexOpenLoopMove(void)
 	return m_CurrentRateIndex;
 }
 
+int X2Mount::useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterface** pOLSI)
+{
+	nGuideRateIndex = 2; // 2 is guide speed, 1x
+	return queryAbstraction(OpenLoopMoveInterface_Name, (void**)pOLSI);
+}
+
 #pragma mark - UI binding
 
 int X2Mount::execModalSettingsDialog(void)

@@ -1004,6 +1004,7 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	if(nErr)
 		return nErr;
 
+	setSlewRate(m_nGoToSlewRate);
 	// set sync target coordinate
 	nErr = setTarget(dRa, dDec);
 	if(nErr)

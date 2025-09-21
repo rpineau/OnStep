@@ -26,6 +26,7 @@
 #include "../../licensedinterfaces/parkinterface.h"
 #include "../../licensedinterfaces/unparkinterface.h"
 #include "../../licensedinterfaces/driverslewstoparkpositioninterface.h"
+#include "../../licensedinterfaces/mount/pulseguideinterface2.h"
 
 // Include files for OnStep mount
 #include "OnStep.h"
@@ -61,6 +62,7 @@ class __CLASS_ATTRIBUTE__((weak,visibility("default"))) X2Mount : public MountDr
                         ,public X2GUIEventInterface
                         ,public SerialPortParams2Interface
                         ,public DriverSlewsToParkPositionInterface
+						,public PulseGuideInterface2
 {
 public:
 	/*!Standard X2 constructor*/
@@ -141,6 +143,9 @@ public:
 	virtual int								rateCountOpenLoopMove(void) const;
 	virtual int								rateNameFromIndexOpenLoopMove(const int& nZeroBasedIndex, char* pszOut, const int& nOutMaxSize);
 	virtual int								rateIndexOpenLoopMove(void);
+
+	//PulseGuideInterface
+	virtual int useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterface** pOLSI);
 
 	//NeedsRefractionInterface
 	virtual bool							needsRefactionAdjustments(void);
