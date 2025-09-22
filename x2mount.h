@@ -39,6 +39,7 @@
 #define CHILD_KEY_PARK_POS   "ParkPos"
 #define CHILD_KEY_STOP_TRK   "StopTrackingOnDisconnect"
 #define CHILD_KEY_SLEW_RATE  "SlewRate"
+#define CHILD_KEY_GUIDE_RATE "GuideRate"
 
 #define MAX_PORT_NAME_SIZE 120
 
@@ -228,6 +229,7 @@ private:
 	bool 	m_bStopTrackingOnDisconnect;
 	int		m_nPortSpeed;
 	int 	m_CurrentRateIndex;
+	int 	m_GuideRateIndex;
 
 	void getPortName(std::string &sPortName) const;
 

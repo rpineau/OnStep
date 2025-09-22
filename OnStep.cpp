@@ -1242,6 +1242,7 @@ int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned 
 	return nErr;
 }
 
+
 int OnStep::stopOpenLoopMove()
 {
 	int nErr = PLUGIN_OK;

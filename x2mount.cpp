@@ -42,6 +42,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_OnStep.setPortSpeed(m_nPortSpeed);
 		m_nSlewRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, 6);
 		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
+		m_GuideRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, 2); // 2 is guide speed, 1x
 		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
 	}
 
@@ -174,7 +175,7 @@ int X2Mount::rateIndexOpenLoopMove(void)
 
 int X2Mount::useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterface** pOLSI)
 {
-	nGuideRateIndex = 2; // 2 is guide speed, 1x
+	nGuideRateIndex = m_GuideRateIndex;
 	return queryAbstraction(OpenLoopMoveInterface_Name, (void**)pOLSI);
 }
 
@@ -254,6 +255,10 @@ int X2Mount::execModalSettingsDialog(void)
 	m_nSlewRateIndex = m_OnStep.getGoToSlewRate();
 	dx->setCurrentIndex("comboBox_2", m_nSlewRateIndex);
 	dx->setCurrentIndex("comboBox", m_nParkPosIndex);
+
+	dx->setEnabled("comboBox_4", true);
+	dx->setCurrentIndex("comboBox_4", m_GuideRateIndex);
+
 	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
 	dx->setChecked("checkBox_2", (m_bStopTrackingOnDisconnect?1:0));
 	dx->setEnabled("checkBox_3", false); // not supported yet.
@@ -285,6 +290,8 @@ int X2Mount::execModalSettingsDialog(void)
 		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, m_nSlewRateIndex);
 
+		m_GuideRateIndex =  dx->currentIndex("comboBox_4");
+		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, m_GuideRateIndex);
 	}
 	return nErr;
 }
@@ -435,11 +442,6 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		setParkingButton(uiex, true);
 		m_bSettingPark = false;
 		uiex->setText("parkingProgress","New parking position set");
-	}
-	if (!strcmp(pszEvent, "on_pushButton_5_clicked")) {
-		m_nSlewRateIndex =  uiex->currentIndex("comboBox_2");
-		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
-		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, m_nSlewRateIndex);
 	}
 	return;
 }
