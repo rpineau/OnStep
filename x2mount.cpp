@@ -25,6 +25,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_bLinked = false;
 	m_bSyncOnConnect = false;
 	m_bStopTrackingOnDisconnect = false;
+	m_nDebugLevel = 0;
 
 	m_nParkPosIndex = 0;
 
@@ -44,6 +45,8 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
 		m_GuideRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, 2); // 2 is guide speed, 1x
 		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
+		m_nDebugLevel = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, 0);
+		m_OnStep.setDebugLevel(m_nDebugLevel);
 	}
 
 	m_OnStep.setSyncLocationDataConnect(m_bSyncOnConnect);
@@ -258,6 +261,7 @@ int X2Mount::execModalSettingsDialog(void)
 
 	dx->setEnabled("comboBox_4", true);
 	dx->setCurrentIndex("comboBox_4", m_GuideRateIndex);
+	dx->setCurrentIndex("comboBox_5", m_nDebugLevel);
 
 	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
 	dx->setChecked("checkBox_2", (m_bStopTrackingOnDisconnect?1:0));
@@ -292,6 +296,9 @@ int X2Mount::execModalSettingsDialog(void)
 
 		m_GuideRateIndex =  dx->currentIndex("comboBox_4");
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, m_GuideRateIndex);
+		m_nDebugLevel = dx->currentIndex("comboBox_5");
+		m_OnStep.setDebugLevel(m_nDebugLevel);
+		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, m_nDebugLevel);
 	}
 	return nErr;
 }
@@ -530,11 +537,10 @@ bool X2Mount::isEstablishLinkAbortable(void) const
 
 void	X2Mount::driverInfoDetailedInfo(BasicStringInterface& str) const
 {
-#ifdef PLUGIN_DEBUG
-	str = "OnStep X2 plugin by Rodolphe Pineau [DEBUG]";
-#else
-	str = "OnStep X2 plugin by Rodolphe Pineau";
-#endif
+	if(m_nDebugLevel > 0)
+		str = "OnStep X2 plugin by Rodolphe Pineau [DEBUG]";
+	else
+		str = "OnStep X2 plugin by Rodolphe Pineau";
 }
 
 double	X2Mount::driverInfoVersion(void) const

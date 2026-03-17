@@ -40,6 +40,7 @@
 #define CHILD_KEY_STOP_TRK   "StopTrackingOnDisconnect"
 #define CHILD_KEY_SLEW_RATE  "SlewRate"
 #define CHILD_KEY_GUIDE_RATE "GuideRate"
+#define CHILD_KEY_DEBUG_LVL  "DebugLevel"
 
 #define MAX_PORT_NAME_SIZE 120
 
@@ -230,6 +231,8 @@ private:
 	int		m_nPortSpeed;
 	int 	m_CurrentRateIndex;
 	int 	m_GuideRateIndex;
+
+	int 	m_nDebugLevel;
 
 	void getPortName(std::string &sPortName) const;
 

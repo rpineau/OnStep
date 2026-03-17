@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>500</width>
-    <height>766</height>
+    <height>800</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,13 +19,13 @@
   <property name="minimumSize">
    <size>
     <width>500</width>
-    <height>766</height>
+    <height>800</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
     <width>500</width>
-    <height>766</height>
+    <height>800</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -68,10 +68,10 @@
       <enum>QFrame::Raised</enum>
      </property>
      <widget class="QPushButton" name="pushButtonOK">
-      <property name="geometry">
-       <rect>
-        <x>281</x>
-        <y>696</y>
+       <property name="geometry">
+        <rect>
+         <x>281</x>
+         <y>730</y>
         <width>81</width>
         <height>24</height>
        </rect>
@@ -84,10 +84,10 @@
       </property>
      </widget>
      <widget class="QPushButton" name="pushButtonCancel">
-      <property name="geometry">
-       <rect>
-        <x>370</x>
-        <y>696</y>
+       <property name="geometry">
+        <rect>
+         <x>370</x>
+         <y>730</y>
         <width>81</width>
         <height>24</height>
        </rect>
@@ -308,7 +308,7 @@
         <x>20</x>
         <y>304</y>
         <width>430</width>
-        <height>241</height>
+        <height>275</height>
        </rect>
       </property>
       <property name="title">
@@ -552,12 +552,58 @@
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
       </widget>
+      <widget class="QLabel" name="label_10">
+       <property name="geometry">
+        <rect>
+         <x>30</x>
+         <y>240</y>
+         <width>78</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Debug log :</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+      <widget class="QComboBox" name="comboBox_5">
+       <property name="geometry">
+        <rect>
+         <x>116</x>
+         <y>240</y>
+         <width>184</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <item>
+        <property name="text">
+         <string>Off</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Errors only</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Full trace</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Byte-level I/O</string>
+        </property>
+       </item>
+      </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_3">
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>560</y>
+        <y>594</y>
         <width>430</width>
         <height>120</height>
        </rect>

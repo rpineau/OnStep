@@ -26,7 +26,6 @@
 
 #define PLUGIN_VERSION 1.200
 
-// #define PLUGIN_DEBUG 3   // define this to have log files, 1 = bad stuff only, 2 and up.. full debug
 
 enum OnStepErrors {PLUGIN_OK=0, NOT_CONNECTED, PLUGIN_CANT_CONNECT, PLUGIN_BAD_CMD_RESPONSE, COMMAND_FAILED, PLUGIN_ERROR, COMMAND_TIMEOUT};
 enum OnStepTrackRate {NOT_TRACKING, SIDEREAL, LUNAR, SOLAR, KING, TRACKING_OTHER};
@@ -112,9 +111,8 @@ public:
 	void setStopTrackingOnDisconnect(bool bLeaveOn);
 
 
-#ifdef PLUGIN_DEBUG
+	void setDebugLevel(int nLevel);
 	void log(std::string sLogEntry);
-#endif
 private:
 
 	SerXInterface                       *m_pSerx;
@@ -205,12 +203,10 @@ private:
 	
 	CStopWatch  m_commandDelayTimer;
 
-#ifdef PLUGIN_DEBUG
-	// timestamp for logs
+	int m_nDebugLevel;
 	const std::string getTimeStamp();
 	std::ofstream m_sLogFile;
 	std::string m_sLogfilePath;
-#endif
 
 };
 

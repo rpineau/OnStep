@@ -6,7 +6,7 @@ OnStep::OnStep()
 
     m_commandDelayTimer.Reset();
 
-#ifdef PLUGIN_DEBUG
+	m_nDebugLevel = 0;
 #if defined(WIN32)
 	m_sLogfilePath = getenv("HOMEDRIVE");
 	m_sLogfilePath += getenv("HOMEPATH");
@@ -15,24 +15,13 @@ OnStep::OnStep()
 	m_sLogfilePath = getenv("HOME");
 	m_sLogfilePath += "/OnStepLog.txt";
 #endif
-	m_sLogFile.open(m_sLogfilePath, std::ios::out |std::ios::trunc);
-#endif
-
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Version " << std::fixed << std::setprecision(2) << PLUGIN_VERSION << " build " << __DATE__ << " " << __TIME__ << std::endl;
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Constructor Called." << std::endl;
-	m_sLogFile.flush();
-#endif
 }
 
 
 OnStep::~OnStep(void)
 {
-#ifdef    PLUGIN_DEBUG
-	// Close LogFile
 	if(m_sLogFile.is_open())
 		m_sLogFile.close();
-#endif
 }
 
 int OnStep::Connect(std::string sPort)
@@ -40,11 +29,11 @@ int OnStep::Connect(std::string sPort)
 	std::string sResp;
 	int nErr = PLUGIN_OK;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Connect Called." << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Trying to connect to port " << sPort<< std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	m_sPort.assign(sPort);
 	m_bIsConnected = false;
 
@@ -67,10 +56,10 @@ int OnStep::Connect(std::string sPort)
 						   m_pTsx->latitude(),
 						   m_pTsx->timeZone());
 		if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response = " << sResp << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			m_bIsConnected = false;
 			return nErr;
 		}
@@ -80,10 +69,10 @@ int OnStep::Connect(std::string sPort)
 	if(nErr) {
 		if(nErr == ERR_TXTIMEOUT)
 			m_bIsConnected = false;
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error calling isHomingDone :" << nErr << ", response = " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		m_bIsConnected = false;
 
 	}
@@ -95,18 +84,18 @@ int OnStep::Connect(std::string sPort)
 
 int OnStep::Disconnect(void)
 {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Disconnect Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	if (m_bIsConnected) {
 		if(m_bStopTrackingOnDisconnect)
 			setTrackingRates( false, true, 0.0, 0.0); // stop tracking on disconnect.
 		if(m_pSerx){
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] closing serial port." << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			m_pSerx->flushTx();
 			m_pSerx->purgeTxRx();
 			m_pSerx->close();
@@ -156,19 +145,19 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 	
 	nErr = m_pSerx->bytesWaitingRx(nBytesWaiting);
 	if(nBytesWaiting) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [nBytesWaiting] calling purgeTxR"<< std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		m_pSerx->purgeTxRx();
 	}
 
 	sResp.clear();
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sending '" << sCmd << "'" << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = m_pSerx->writeFile((void *)sCmd.c_str(), sCmd.size(), ulBytesWrite);
 	m_commandDelayTimer.Reset();
@@ -190,16 +179,16 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 	}
 	nErr = readResponse(sResp, nTimeout, cEndOfResponse, nExpectedResLen);
 	if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ***** ERROR READING RESPONSE **** error = " << nErr << " , response : '" << sResp << "'" << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] response : '" << sResp << "'" <<  std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 }
@@ -220,18 +209,18 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 
 	do {
 		nErr = m_pSerx->bytesWaitingRx(nBytesWaiting);
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+	if(m_nDebugLevel >= 3) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] nBytesWaiting      : " << nBytesWaiting << std::endl;
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] nBytesWaiting nErr : " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		if(!nBytesWaiting) {
 			nbTimeouts += MAX_READ_WAIT_TIMEOUT;
 			if(nbTimeouts >= nTimeout) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+	if(m_nDebugLevel >= 3) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bytesWaitingRx timeout, no data for " << nbTimeouts << " ms"<< std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = COMMAND_TIMEOUT;
 				break;
 			}
@@ -247,20 +236,20 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 			break; // buffer is full.. there is a problem !!
 		}
 		if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile error : " << nErr << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			return nErr;
 		}
 
 		if (ulBytesRead != nBytesWaiting) { // timeout
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile Timeout Error." << std::endl;
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile nBytesWaiting : " << nBytesWaiting << std::endl;
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile ulBytesRead   : " << ulBytesRead << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 		}
 
 		ulTotalBytesRead += ulBytesRead;
@@ -268,7 +257,7 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 		// response not ending with the normal end of response char.
 		if(cEndOfResponse == SHORT_RESPONSE && ulTotalBytesRead >= nExpectedResLen) // NYX adds \r\n
 			break;
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] pszBuf : "  << pszBuf <<  std::endl;
 		if(ulBytesRead>1)
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-1) : "  <<  *(pszBufPtr-1) <<  std::endl;
@@ -277,7 +266,7 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 		if(ulBytesRead>3)
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] *(pszBufPtr-3) : "  << *(pszBufPtr-3) <<  std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		// NYX hack
 		if(ulTotalBytesRead >= 3) {
 			if (*(pszBufPtr-2) == cEndOfResponse || *(pszBufPtr-3) == cEndOfResponse)
@@ -296,10 +285,10 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 	else
 		sResp.clear();
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+	if(m_nDebugLevel >= 3) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sResp : '" << sResp << "'" << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 }
@@ -308,10 +297,10 @@ int OnStep::getFirmwareVersion(std::string &sFirmware)
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":GVN#", sResp);
 	if(sResp.size() == 0)
@@ -328,10 +317,10 @@ int OnStep::getStatus()
 	unsigned long nSize;
 	nErr = sendCommand(":GU#", sStatus);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ERROR : " << nErr << " , sResp : " << sStatus << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	// setting some default
@@ -344,10 +333,10 @@ int OnStep::getStatus()
 	m_bIsAtHome = false;
 
 	nSize = sStatus.size();
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sStatus (nSize) : " << sStatus << " (" << nSize << ")"<<std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	if(nSize) {
 		while(nIndex < nSize) {
 			switch(sStatus.at(nIndex++)) {
@@ -393,7 +382,7 @@ int OnStep::getStatus()
 		}
 	}
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsTracking : " << (m_bIsTracking?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsSlewing  : " << (m_bIsSlewing?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsParked   : " << (m_bIsParked?"Yes":"No") << std::endl;
@@ -403,7 +392,7 @@ int OnStep::getStatus()
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_nTrackRate  : " << m_nTrackRate << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_nSideOfPier : " << (m_nSideOfPier==EAST?"East":"West") << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 
 	return nErr;
@@ -415,10 +404,10 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	// get RA
 	nErr = sendCommand(":GRH#", sResp);
@@ -428,37 +417,37 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 		// retry
 		nErr = sendCommand(":GRH#", sResp);
 		if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GR# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			dRa = m_dRa;
 			dDec = m_dDec;
 			return PLUGIN_OK; // we will retry
 		}
 	}
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sResp : " << sResp << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	if(sResp.size() == 0)
 		return ERR_CMDFAILED;
 
 	nErr = convertHHMMSStToRa(sResp, dRa);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GR# convertHHMMSStToRa error : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		dRa = m_dRa;
 		dDec = m_dDec;
 		return PLUGIN_OK;
 	}
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dRa : " << std::fixed << std::setprecision(12) << dRa << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	m_dRa = dRa;
 
 	// get DEC
@@ -469,10 +458,10 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 		// retry
 		nErr = sendCommand(":GDH#", sResp);
 		if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GD# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			dRa = m_dRa;
 			dDec = m_dDec;
 			return PLUGIN_OK; // we will retry
@@ -483,20 +472,20 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 
 	nErr = convertDDMMSSToDecDeg(sResp, dDec);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GD# convertDDMMSSToDecDeg error : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		dRa = m_dRa;
 		dDec = m_dDec;
 		return PLUGIN_OK;
 	}
 
 	m_dDec = dDec;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dDec : " << std::fixed << std::setprecision(12) << dDec << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 }
@@ -506,10 +495,10 @@ int OnStep::getAltAndAz(double &dAlt, double &dAz)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	// get Az
 	nErr = sendCommand(":GZH#", sResp);
@@ -517,39 +506,39 @@ int OnStep::getAltAndAz(double &dAlt, double &dAz)
 		// retry
 		nErr = sendCommand(":GZH#", sResp);
 		if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GZ# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			dAlt = m_dAlt;
 			dAz = m_dAz;
 			return PLUGIN_OK;
 		}
 	}
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sResp : " << sResp << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	if(sResp.size() == 0)
 		return ERR_CMDFAILED;
 
 	nErr = convertDDMMSSToDecDeg(sResp, dAz);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GZ# convertDDMMSSToDecDeg error : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		dAlt = m_dAlt;
 		dAz = m_dAz;
 		return PLUGIN_OK;
 	}
 
 	m_dAz = dAz;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dAz : " << std::fixed << std::setprecision(12) << dAz << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	// get Alt
 	nErr = sendCommand(":GAH#", sResp);
@@ -557,10 +546,10 @@ int OnStep::getAltAndAz(double &dAlt, double &dAz)
 		// retry
 		nErr = sendCommand(":GAH#", sResp);
 		if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GA# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			dAlt = m_dAlt;
 			dAz = m_dAz;
 			return PLUGIN_OK;
@@ -570,20 +559,20 @@ int OnStep::getAltAndAz(double &dAlt, double &dAz)
 		return ERR_CMDFAILED;
 	nErr = convertDDMMSSToDecDeg(sResp, dAlt);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GA# convertDDMMSSToDecDeg error : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		dAlt = m_dAlt;
 		dAz = m_dAz;
 		return PLUGIN_OK;
 	}
 
 	m_dAlt = dAlt;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dAlt : " << std::fixed << std::setprecision(12) << dAlt << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 
@@ -597,19 +586,19 @@ int OnStep::setTarget(double dRa, double dDec)
 	std::string sResp;
 	std::string sTemp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Ra  : " << std::fixed << std::setprecision(8) << dRa << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Dec : " << std::fixed << std::setprecision(8) << dDec << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	// convert Ra value to HH:MM:SS.SSSS before passing them to OnStep
 	convertRaToHHMMSSt(dRa, sTemp);
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Converted Ra : " << sTemp << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	// set target Ra
 	ssTmp<<":Sr"<<sTemp<<"#";
 	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
@@ -617,20 +606,20 @@ int OnStep::setTarget(double dRa, double dDec)
 		nErr = PLUGIN_OK;
 	}
 	else if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Error setting target Ra, response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 	// convert target dec to sDD*MM:SS.SSS
 	convertDecDegToDDMMSS_ForDecl(dDec, sTemp);
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Converted Dec : " <<sTemp << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	std::stringstream().swap(ssTmp);
 	// set target Dec
 	ssTmp<<":Sd"<<sTemp<<"#";
@@ -638,10 +627,10 @@ int OnStep::setTarget(double dRa, double dDec)
 	if(sResp.size() && sResp.at(0)=='1')
 		nErr = PLUGIN_OK;
 	else if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Error setting target Dec, response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
@@ -655,19 +644,19 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 	std::string sResp;
 	std::string sTemp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Az  : " << std::fixed << std::setprecision(8) << dAz << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Alt : " << std::fixed << std::setprecision(8) << dAlt << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	// convert Az value to DDD*MM:SS
 	convertDecAzToDDMMSSs(dAz, sTemp);
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] szTemp(Az)  : " << sTemp << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	// set target Az
 	ssTmp<<":Sz"<<sTemp<<"#";
 	nErr = sendCommand(ssTmp.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
@@ -678,10 +667,10 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 	// convert Alt value sDD:MM:SS.SSS
 	convertDecDegToDDMMSS_ForAlt(dAlt, sTemp);
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "]  szTemp(Alt)  : " <<sTemp << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	// set target Alt
 	std::stringstream().swap(ssTmp);
 	ssTmp<<":Sa"<<sTemp<<"#";
@@ -698,29 +687,29 @@ int OnStep::syncTo(double dRa, double dDec)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "]  Ra Hours   : " << std::fixed << std::setprecision(5) << dRa << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "]  Ra Degrees : " << std::fixed << std::setprecision(5) << dRa*15.0 << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "]  Dec        : " << std::fixed << std::setprecision(5) << dDec << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = setTarget(dRa, dDec);
 	if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Error setting sync target." << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 //	if(!m_bSyncDone) {
 		nErr = sendCommand(":CM#", sResp); // sync
 		if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Error syncing to target." << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			return nErr;
 		}
 		if(sResp.at(0) == 'E') {
@@ -744,10 +733,10 @@ int OnStep::isAligned(bool &bAligned)
 {
 	int nErr = PLUGIN_OK;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	// for now
 	bAligned = true;
 	return nErr;
@@ -760,30 +749,30 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 	std::string sResp;
 	std::stringstream ssTmp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bSiderialTrackingOn  : " << (bSiderialTrackingOn?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bIgnoreRates         : " << (bIgnoreRates?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dRaRateArcSecPerSec  : " << std::fixed << std::setprecision(8) << dRaRateArcSecPerSec << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dDecRateArcSecPerSec : " << std::fixed << std::setprecision(8) << dDecRateArcSecPerSec << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	// stop tracking
 	if(!bSiderialTrackingOn && bIgnoreRates) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting to stopped" << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		m_dRaRateArcSecPerSec = 15.0410681;
 		m_dDecRateArcSecPerSec = 0.0;
 		nErr = sendCommand(":Td#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); // tracking off
 	}
 	// sidereal
 	else if(bSiderialTrackingOn && bIgnoreRates) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting to Sidereal" << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		m_dRaRateArcSecPerSec = 0.0;
 		m_dDecRateArcSecPerSec = 0.0;
 		nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
@@ -791,10 +780,10 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 	}
 	// Lunar
 	else if (0.30 < dRaRateArcSecPerSec && dRaRateArcSecPerSec < 0.83 && -0.25 < dDecRateArcSecPerSec && dDecRateArcSecPerSec < 0.25) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting to Lunar" << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
 		m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
 		nErr = sendCommand(":TL#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Lunar rate
@@ -802,10 +791,10 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 	}
 	// solar
 	else if (0.037 < dRaRateArcSecPerSec && dRaRateArcSecPerSec < 0.043 && -0.017 < dDecRateArcSecPerSec && dDecRateArcSecPerSec < 0.017) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting to Solar" << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		m_dRaRateArcSecPerSec = dRaRateArcSecPerSec;
 		m_dDecRateArcSecPerSec = dDecRateArcSecPerSec;
 		nErr = sendCommand(":TS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Solar rate
@@ -813,21 +802,21 @@ int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double
 	}
 	// default to sidereal
 	else {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] default to sidereal" << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		m_dRaRateArcSecPerSec = 0.0;
 		m_dDecRateArcSecPerSec = 0.0;
 		nErr = sendCommand(":TQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0); // Sidereal rate
 		nErr = sendCommand(":Te#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1); //tracking on
 	}
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	nErr = sendCommand(":GT#", sResp);
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] check current tracking value : " << sResp << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 
 	return nErr;
@@ -839,10 +828,10 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
 	std::string sResp;
 	bool bTrackingOn;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	isTrackingOn(bTrackingOn);
 	if(!bTrackingOn) {
 		dRaRateArcSecPerSec = 15.0410681; // Convention to say tracking is off - see TSX documentation
@@ -866,12 +855,12 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
 		dDecRateArcSecPerSec = 0.0;
 		bSiderialTrackingOn = true;
 	}
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bSiderialTrackingOn  : " << (bSiderialTrackingOn?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dRaRateArcSecPerSec  : " << std::fixed << std::setprecision(8) << dRaRateArcSecPerSec << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dDecRateArcSecPerSec : " << std::fixed << std::setprecision(8) << dDecRateArcSecPerSec << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	return nErr;
 }
 
@@ -882,36 +871,36 @@ int OnStep::getLimits(double &dHoursEast, double &dHoursWest)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":GXEe#", sResp);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEe# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	dHoursEast = std::stod(sResp)/15.0;
 
 	nErr = sendCommand(":GXEw#", sResp);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEw# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	dHoursWest = std::stod(sResp)/15.0;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHoursEast  : " << std::fixed << std::setprecision(8) << dHoursEast << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHoursWest  : " << std::fixed << std::setprecision(8) << dHoursWest << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 
@@ -922,36 +911,36 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 	double dEast, dWest;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":GXE9#", sResp);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXE9# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 	dEast = std::fabs(std::stod(sResp))/15.0;
 
 	nErr = sendCommand(":GXEA#", sResp);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEA# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 	dWest = std::fabs(std::stod(sResp))/15.0;
 
 	// dHourAngle = (dEast>dWest)?dWest:dEast; // we take the smallest one as TSX only has 1 value
 	dHourAngle = dWest;
 	
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHourAngle  : " << std::fixed << std::setprecision(8) << dHourAngle << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 }
@@ -967,10 +956,10 @@ int OnStep::setSlewRate(int nRate)
 	if(nRate>(PLUGIN_NB_SLEW_SPEEDS-1))
 		return COMMAND_FAILED;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	ssCmd << ":R" << nRate << "#";
 	nErr = sendCommand(ssCmd.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
@@ -995,10 +984,10 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	int nErr = PLUGIN_OK;
 	bool bAligned;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = isAligned(bAligned);
 	if(nErr)
@@ -1012,10 +1001,10 @@ int OnStep::startSlewTo(double dRa, double dDec)
 
 	nErr = slewTargetRaDecEpochNow();
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 
 	}
 	m_bIsSlewing = true;
@@ -1029,19 +1018,19 @@ int OnStep::slewTargetRaDecEpochNow()
 	std::string sResp;
 	int nRespCode;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	
 	nErr = sendCommand(":MS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
 		nErr = PLUGIN_OK;
 	else if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Error slewing, response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return ERR_CMDFAILED;
 	}
 	if(sResp.size()) {
@@ -1052,42 +1041,42 @@ int OnStep::slewTargetRaDecEpochNow()
 				break;
 
 			case 1:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error below horizon."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_LX200DESTBELOWHORIZ;
 				break;
 
 			case 2:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error no object."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_NOOBJECTSELECTED;
 				break;
 
 			case 4:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error position unreachable."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_GEMINI_POSITION_UNREACHABLE;
 				break;
 
 			case 5:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error not aligned."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_GEMINI_NOT_ALIGNED;
 				break;
 
 			case 6:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error outside limits."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_LX200OUTSIDELIMIT;
 				break;
 
@@ -1106,19 +1095,19 @@ int OnStep::slewTargetAltAszEpochNow()
 	std::string sResp;
 	int nRespCode;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":MA#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
 		nErr = PLUGIN_OK;
 	else if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Error slewing, response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return ERR_CMDFAILED;
 	}
 	if(sResp.size()) {
@@ -1129,42 +1118,42 @@ int OnStep::slewTargetAltAszEpochNow()
 				break;
 
 			case 1:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error below horizon."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_LX200DESTBELOWHORIZ;
 				break;
 
 			case 2:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error no object."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_NOOBJECTSELECTED;
 				break;
 
 			case 4:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error position unreachable."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_GEMINI_POSITION_UNREACHABLE;
 				break;
 
 			case 5:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error not aligned."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_GEMINI_NOT_ALIGNED;
 				break;
 
 			case 6:
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Limit error outside limits."  << std::endl;
 				m_sLogFile.flush();
-#endif
+	}
 				nErr = ERR_LX200OUTSIDELIMIT;
 				break;
 
@@ -1179,20 +1168,20 @@ int OnStep::slewTargetAltAszEpochNow()
 
 int OnStep::getNbSlewRates()
 {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called : PLUGIN_NB_SLEW_SPEEDS = " << PLUGIN_NB_SLEW_SPEEDS << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	return PLUGIN_NB_SLEW_SPEEDS;
 }
 
 
 int OnStep::getRateName(int nZeroBasedIndex, std::string &sOut)
 {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	if (nZeroBasedIndex > PLUGIN_NB_SLEW_SPEEDS)
 		return PLUGIN_ERROR;
@@ -1209,11 +1198,11 @@ int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned 
 	std::stringstream sTmp;
 	m_nOpenLoopDir = Dir;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting dir to  : " << Dir << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting rate to : " << nRate << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	// select rate
 	nErr = setSlewRate(nRate);
@@ -1248,10 +1237,10 @@ int OnStep::stopOpenLoopMove()
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dir was  : " << m_nOpenLoopDir << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	switch(m_nOpenLoopDir){
 		case MountDriverInterface::MD_NORTH:
@@ -1277,38 +1266,38 @@ int OnStep::isSlewToComplete(bool &bComplete)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	bComplete = false;
 	if(!m_bIsSlewing ) {
 		bComplete = true;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsSlewing : " << (m_bIsSlewing?"Yes":"No") << std::endl;
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bComplete    : " << (bComplete?"Yes":"No") << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 	nErr = getStatus();
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 	bComplete = m_bIsSlewing?false:true;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsSlewing : " << (m_bIsSlewing?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bComplete    : " << (bComplete?"Yes":"No") << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 }
@@ -1318,20 +1307,20 @@ int OnStep::gotoParkPos(double dAlt, double dAz)
 	int nErr = PLUGIN_OK;
 	double dRa, dDec;
 	std::string sResp;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	m_bIsParking = false;
 
 	// stop tracking
 	nErr = setTrackingRates( false, true, 0.0, 0.0);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setTrackingRates error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 	
@@ -1340,20 +1329,20 @@ int OnStep::gotoParkPos(double dAlt, double dAz)
 	// go to park coordinate
 	nErr = setTargetAltAz(dAlt, dAz);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setTargetAltAz error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 
 	nErr = slewTargetAltAszEpochNow();
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] slewTargetAltAszEpochNow error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
@@ -1366,10 +1355,10 @@ int OnStep::gotoPark()
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	m_bIsParking = false;
 
@@ -1386,20 +1375,20 @@ int OnStep::isParkingComplete(bool &bComplete)
 
 	nErr = getStatus();
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 	bComplete = m_bIsParking?false:true;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsParking : " << (m_bIsParking?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bComplete    : " << (bComplete?"Yes":"No") << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 }
@@ -1408,27 +1397,27 @@ int OnStep::getAtPark(bool &bParked)
 {
 	int nErr = PLUGIN_OK;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	bParked = false;
 
 	nErr = getStatus(); // will update the flags
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 	bParked = m_bIsParked;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bParked   " << (bParked?"Yes":"No") << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 }
@@ -1438,26 +1427,26 @@ int OnStep::unPark()
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":hR#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	if(nErr) {
 		m_bIsParked = true;
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	nErr = getStatus(); // will update the flags
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1471,34 +1460,34 @@ int OnStep::isUnparkDone(bool &bComplete)
 	std::string sResp;
 	bool bTrackingOn = false;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	bComplete = false;
 	nErr = getAtPark(bAtPArk);
 	if(!bAtPArk)
 		bComplete = true;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bAtPArk   " << (bAtPArk?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bComplete " << (bComplete?"Yes":"No") << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsAtHome   " << (m_bIsAtHome?"Yes":"No") << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bComplete " << (bComplete?"Yes":"No") << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	setTrackingRates(true, true, 0.0, 0.0);
 
 	isTrackingOn(bTrackingOn);
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bTrackingOn   " << (bTrackingOn?"Yes":"No") << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	m_bIsParked = false;
 	return nErr;
@@ -1509,25 +1498,25 @@ int OnStep::setCurentPosAsPark()
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":hQ#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	nErr = getStatus(); // will update the flags
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1538,24 +1527,24 @@ int OnStep::homeMount()
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	if(m_bIsAtHome) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] already homed." << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 	nErr = sendCommand(":hC#", sResp, 0);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << " , response :" << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1566,18 +1555,18 @@ int OnStep::isHomingDone(bool &bIsHomed)
 {
 	int nErr = PLUGIN_OK;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	bIsHomed = false;
 
 	nErr = getStatus(); // will update the flags
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
@@ -1591,27 +1580,27 @@ int OnStep::isTrackingOn(bool &bTrackOn)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	bTrackOn = false;
 	nErr = getStatus(); // will update the flags
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] getStatus error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 
 	bTrackOn = m_bIsTracking;
 
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bTrackOn : " << (bTrackOn?"Yes":"No")<< std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	return nErr;
 }
@@ -1621,10 +1610,10 @@ int OnStep::Abort()
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":Q#", sResp, 0);
 
@@ -1640,10 +1629,10 @@ int OnStep::syncTime()
 	std::string sResp;
 	std::stringstream ssTmp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	m_pTsx->localDateTime(yy, mm, dd, h, min, sec, dst);
 
@@ -1663,10 +1652,10 @@ int OnStep::syncDate()
 	std::string sResp;
 	std::stringstream ssTmp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	m_pTsx->localDateTime(yy, mm, dd, h, min, sec, dst);
 	// yy is actually yyyy, need conversion to yy, 2017 -> 17
@@ -1684,19 +1673,19 @@ int OnStep::setSiteLongitude(const std::string sLongitude)
 	std::string sResp;
 	std::stringstream ssTmp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	// :SgsDDD*MM#
 	ssTmp << ":Sg" << sLongitude << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1707,20 +1696,20 @@ int OnStep::setSiteLatitude(const std::string sLatitude)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 	std::stringstream ssTmp;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	// :StsDD*MM#
 	ssTmp << ":St" << sLatitude << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
 
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1733,18 +1722,18 @@ int OnStep::setSiteTimezone(const std::string sTimezone)
 	std::stringstream ssTmp;
 	std::string sCurrentTimeZone;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	ssTmp << ":SG" << sTimezone << "#";
 	nErr = sendCommand(ssTmp.str(), sResp, 0);
 
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1755,10 +1744,10 @@ int OnStep::getSiteLongitude(std::string &sLongitude)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":GgH#", sResp);
 	if(!nErr) {
@@ -1766,10 +1755,10 @@ int OnStep::getSiteLongitude(std::string &sLongitude)
 	}
 
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1780,10 +1769,10 @@ int OnStep::getSiteLatitude(std::string &sLatitude)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":GtH#", sResp);
 	if(!nErr) {
@@ -1791,10 +1780,10 @@ int OnStep::getSiteLatitude(std::string &sLatitude)
 	}
 
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1805,10 +1794,10 @@ int OnStep::getSiteTZ(std::string &sTimeZone)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":GG#", sResp);
 	if(!nErr) {
@@ -1824,10 +1813,10 @@ int OnStep::getSiteTZ(std::string &sTimeZone)
 	}
 
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1845,27 +1834,27 @@ int OnStep::setSiteData(double dLongitude, double dLatitute, double dTimeZone)
 	char cSign;
 	double dTimeZoneNew;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dLongitude : " << std::fixed << std::setprecision(5) << dLongitude << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dLatitute  : " << std::fixed << std::setprecision(5) << dLatitute << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dTimeZone  : " << std::fixed << std::setprecision(2) << dTimeZone << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	convertDecDegToDDMMSS(dLongitude, sLong);
 	convertDecDegToDDMMSS(dLatitute, sLat);
 
 	m_pTsx->localDateTime(yy, mm, dd, h, min, sec, dst);
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dst        : " << (dst != 0 ?"Yes":"No") << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	if(dst) {
 		dTimeZone += 1.0;
@@ -1880,12 +1869,12 @@ int OnStep::setSiteData(double dLongitude, double dLatitute, double dTimeZone)
 
 	sLat.assign(sLat);
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sLong      : " << sLong << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sLat       : " << sLat<< std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ssTimeZone : " << ssTimeZone.str() << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	nErr = setSiteLongitude(sLong);
 
 	nErr |= setSiteLatitude(sLat);
@@ -1897,10 +1886,10 @@ int OnStep::setSiteData(double dLongitude, double dLatitute, double dTimeZone)
 	nErr |= syncTime();
 
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr  << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	return nErr;
@@ -1910,10 +1899,10 @@ int OnStep::getSiteData(std::string &sLongitude, std::string &sLatitude, std::st
 {
 	int nErr = PLUGIN_OK;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = getSiteLongitude(sLongitude);
 	nErr |= getSiteLatitude(sLatitude);
@@ -1933,17 +1922,17 @@ int OnStep::getLocalTime(std::string &sTime)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":GLH#", sResp);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 	if(sResp.size() == 0)
@@ -1958,17 +1947,17 @@ int OnStep::getLocalDate(std::string &sDate)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = sendCommand(":GC#", sResp);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 	if(sResp.size() == 0)
@@ -1985,10 +1974,10 @@ void OnStep::convertDecDegToDDMMSS(double dDeg, std::string &sResult)
 	std::stringstream ssTmp;
 	char cSign;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	sResult.clear();
 	// convert dDeg decimal value to sDD:MM:SS
@@ -2011,10 +2000,10 @@ void OnStep::convertDecAzToDDMMSSs(double dDeg, std::string &sResult)
 	double dNewDeg;
 	std::stringstream ssTmp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	sResult.clear();
 	// convert dDeg decimal value to DDD*MM:SS.SSS
@@ -2037,10 +2026,10 @@ void OnStep::convertDecDegToDDMMSS_ForDecl(double dDeg, std::string &sResult)
 	char cSign;
 	std::stringstream ssTmp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	sResult.clear();
 	// convert dDeg decimal value to sDD*MM:SS.SSS
@@ -2064,10 +2053,10 @@ void OnStep::convertDecDegToDDMMSS_ForAlt(double dAlt, std::string &sResult)
 	char cSign;
 	std::stringstream ssTmp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	sResult.clear();
 	// convert dDeg decimal value to sDD:MM:SS
@@ -2090,10 +2079,10 @@ int OnStep::convertDDMMSSToDecDeg(const std::string sStrDeg, double &dDecDeg)
 	std::vector<std::string> vFieldsData;
 	std::string newDec;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	dDecDeg = 0;
 	// dec is in a weird format.
@@ -2101,17 +2090,17 @@ int OnStep::convertDDMMSSToDecDeg(const std::string sStrDeg, double &dDecDeg)
 
 	std::replace(newDec.begin(), newDec.end(), '*', ':' );
 	std::replace(newDec.begin(), newDec.end(), '\'', ':' );
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] newDec = " << newDec << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	nErr = parseFields(newDec, vFieldsData, ':');
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] parseFields error " << nErr << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 		return nErr;
 	}
 	if(vFieldsData.size() >= 3) {
@@ -2123,16 +2112,16 @@ int OnStep::convertDDMMSSToDecDeg(const std::string sStrDeg, double &dDecDeg)
 			else {
 				dDecDeg = dDecDeg + std::stod(vFieldsData[1])/60.0 + std::stod(vFieldsData[2])/3600.0;
 			}
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dDecDeg = " << std::fixed << std::setprecision(12) << dDecDeg << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 		}
 		catch(const std::exception& e) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] conversion exception : " << e.what() << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			return ERR_PARSE;
 		}
 
@@ -2149,10 +2138,10 @@ void OnStep::convertRaToHHMMSSt(double dRa, std::string &sResult)
 	double hh, mm, SSt;
 	std::stringstream ssTmp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	sResult.clear();
 	// convert Ra value to HH:MM:SS.SSSS
@@ -2172,11 +2161,11 @@ int OnStep::convertHHMMSStToRa(const std::string szStrRa, double &dRa)
 	int nErr = PLUGIN_OK;
 	std::vector<std::string> vFieldsData;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] szStrRa = '" <<  szStrRa << "'" << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	dRa = 0;
 
@@ -2187,16 +2176,16 @@ int OnStep::convertHHMMSStToRa(const std::string szStrRa, double &dRa)
 	if(vFieldsData.size() >= 3) {
 		try {
 			dRa = std::stod(vFieldsData[0]) + std::stod(vFieldsData[1])/60.0 + std::stod(vFieldsData[2])/3600.0;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dRa = " << std::fixed << std::setprecision(12) << dRa << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 		}
 		catch(const std::exception& e) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] conversion exception : " << e.what() << std::endl;
 			m_sLogFile.flush();
-#endif
+	}
 			return ERR_PARSE;
 		}
 	}
@@ -2212,19 +2201,19 @@ int OnStep::IsBeyondThePole(bool &bBeyondPole)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< "[" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 
 	bBeyondPole = false;
 
 	nErr = sendCommand(":Gm#", sResp);
 	if(nErr) {
-#if defined PLUGIN_DEBUG
+	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << ", response : " << sResp << std::endl;
 		m_sLogFile.flush();
-#endif
+	}
 	}
 
 	// “beyond the pole” =  “telescope west of the pier”,
@@ -2247,10 +2236,10 @@ int OnStep::parseFields(const std::string sIn, std::vector<std::string> &svField
 	std::string sSegment;
 	std::stringstream ssTmp(sIn);
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
-#endif
+	}
 	if(sIn.size() == 0)
 		return ERR_PARSE;
 
@@ -2284,12 +2273,26 @@ std::string& OnStep::rtrim(std::string& str, const std::string& filter)
 	return str;
 }
 
-#ifdef PLUGIN_DEBUG
+void OnStep::setDebugLevel(int nLevel)
+{
+	if(nLevel > 0 && !m_sLogFile.is_open()) {
+		m_sLogFile.open(m_sLogfilePath, std::ios::out | std::ios::trunc);
+	}
+	else if(nLevel == 0 && m_sLogFile.is_open()) {
+		m_sLogFile.close();
+	}
+	m_nDebugLevel = nLevel;
+	if(m_nDebugLevel >= 2 && m_sLogFile.is_open()) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [setDebugLevel] Debug level set to " << m_nDebugLevel << std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [OnStep] Version " << std::fixed << std::setprecision(2) << PLUGIN_VERSION << " build " << __DATE__ << " " << __TIME__ << std::endl;
+		m_sLogFile.flush();
+	}
+}
+
 void OnStep::log(std::string sLogEntry)
 {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] " << sLogEntry << std::endl;
 	m_sLogFile.flush();
-
 }
 
 const std::string OnStep::getTimeStamp()
@@ -2302,4 +2305,3 @@ const std::string OnStep::getTimeStamp()
 
 	return buf;
 }
-#endif

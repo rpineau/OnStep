@@ -59,6 +59,23 @@ make                                       # Build libOnStep.so
 
 **No test framework.** No unit tests exist. Verification is manual against live hardware.
 
+
+### UI File Validation
+
+Before committing or building changes to `.ui` files, validate their XML structure. Merge conflicts often silently break `.ui` files. Use the Qt User Interface Compiler (`uic`) to catch syntax errors and ensure the UI definition is valid:
+
+```bash
+uic OnStep.ui > /dev/null
+```
+If the command outputs nothing and exits with a `0` status, the syntax is intact. If it fails, it will print a parse error indicating the line number and exact nature of the malformed XML tags, which you must manually fix in `OnStep.ui`.
+
+**Dependencies:**
+`uic` is provided by the Qt5 base development tools. To install it on Debian/Ubuntu systems, run:
+```bash
+sudo apt-get update && sudo apt-get install -y qtbase5-dev-tools qtchooser
+```
+
+
 To enable debug logging, uncomment in `OnStep.h`:
 ```cpp
 #define PLUGIN_DEBUG 2   // 1 = errors only, 2+ = full trace
