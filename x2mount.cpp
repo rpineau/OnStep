@@ -32,6 +32,13 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_OnStep.setSerxPointer(m_pSerX);
 	m_OnStep.setTSX(m_pTheSkyXForMounts);
 
+	m_sMountVendor.assign(pszDriverSelection);
+	if(m_sMountVendor.find("OnStep") != std::string::npos) {
+		// OnStep generic
+	}
+	if(m_sMountVendor.find("ZWO") != std::string::npos) {
+		// ZWO modified OnStep
+	}
 	m_CurrentRateIndex = 0;
 
 	// Read the current stored values for the settings

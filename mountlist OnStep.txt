@@ -1,3 +1,4 @@
 //See hardwarelist.txt for details on this file format.
 //Version|Manufacturer|Model|Comment|MapsTo|PlugInDllName|X2Developer|Windows|Mac|Linux|
 2|OnStep|OnStep Telescope Mount Controller|X2 plugin for OnStep Telescope Mount Goto Controller| |libOnStep||1|1|1|
+2|ZWO|ZWO AMx Telescope Mount|X2 plugin for ZWO AMx Telescope Mount| |libOnStep||1|1|1|
