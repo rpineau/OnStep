@@ -26,6 +26,7 @@
 #include "../../licensedinterfaces/parkinterface.h"
 #include "../../licensedinterfaces/unparkinterface.h"
 #include "../../licensedinterfaces/driverslewstoparkpositioninterface.h"
+#include "../../licensedinterfaces/mount/pulseguideinterface2.h"
 
 // Include files for OnStep mount
 #include "OnStep.h"
@@ -38,16 +39,19 @@
 #define CHILD_KEY_PARK_POS   "ParkPos"
 #define CHILD_KEY_STOP_TRK   "StopTrackingOnDisconnect"
 #define CHILD_KEY_SLEW_RATE  "SlewRate"
+#define CHILD_KEY_GUIDE_RATE "GuideRate"
 
 #define MAX_PORT_NAME_SIZE 120
 
 #define DEF_PORT_NAME		"No port found"
 
 #if defined(WIN32)
-class X2Mount : public MountDriverInterface
+#define __CLASS_ATTRIBUTE__(x)
 #else
-class __attribute__((weak,visibility("default"))) X2Mount : public MountDriverInterface
+#define __CLASS_ATTRIBUTE__(x) __attribute__(x)
 #endif
+
+class __CLASS_ATTRIBUTE__((weak,visibility("default"))) X2Mount : public MountDriverInterface
 						,public SyncMountInterface
 						,public SlewToInterface
                         ,public AsymmetricalEquatorialInterface
@@ -59,6 +63,7 @@ class __attribute__((weak,visibility("default"))) X2Mount : public MountDriverIn
                         ,public X2GUIEventInterface
                         ,public SerialPortParams2Interface
                         ,public DriverSlewsToParkPositionInterface
+						,public PulseGuideInterface2
 {
 public:
 	/*!Standard X2 constructor*/
@@ -140,6 +145,9 @@ public:
 	virtual int								rateNameFromIndexOpenLoopMove(const int& nZeroBasedIndex, char* pszOut, const int& nOutMaxSize);
 	virtual int								rateIndexOpenLoopMove(void);
 
+	//PulseGuideInterface
+	virtual int useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterface** pOLSI);
+
 	//NeedsRefractionInterface
 	virtual bool							needsRefactionAdjustments(void);
 
@@ -219,10 +227,9 @@ private:
 	bool 	m_bSyncOnConnect;
 	int 	m_nSlewRateIndex;
 	bool 	m_bStopTrackingOnDisconnect;
-
-	char 	m_PortName[MAX_PORT_NAME_SIZE];
 	int		m_nPortSpeed;
 	int 	m_CurrentRateIndex;
+	int 	m_GuideRateIndex;
 
 	void getPortName(std::string &sPortName) const;
 

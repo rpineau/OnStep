@@ -24,32 +24,24 @@
 
 #include "StopWatch.h"
 
-#define PLUGIN_VERSION 1.000
+#define PLUGIN_VERSION 1.200
 
-// #define PLUGIN_DEBUG 2   // define this to have log files, 1 = bad stuff only, 2 and up.. full debug
+// #define PLUGIN_DEBUG 3   // define this to have log files, 1 = bad stuff only, 2 and up.. full debug
 
 enum OnStepErrors {PLUGIN_OK=0, NOT_CONNECTED, PLUGIN_CANT_CONNECT, PLUGIN_BAD_CMD_RESPONSE, COMMAND_FAILED, PLUGIN_ERROR, COMMAND_TIMEOUT};
 enum OnStepTrackRate {NOT_TRACKING, SIDEREAL, LUNAR, SOLAR, KING, TRACKING_OTHER};
 enum OnStepSideOfPier {WEST, EAST};
 
-#define SERIAL_BUFFER_SIZE 256
-#define MAX_TIMEOUT 2000            // WiFi  on tht OnStep can take up to 1600 ms to respond !!!
-#define MAX_READ_WAIT_TIMEOUT 25
-#define ND_LOG_BUFFER_SIZE 256
-#define ERR_PARSE   1
+#define SERIAL_BUFFER_SIZE 		256
+#define MAX_TIMEOUT 			2000	// WiFi on the OnStep can take up to 1600 ms to respond !!!
+#define MAX_READ_WAIT_TIMEOUT 	25
+#define ND_LOG_BUFFER_SIZE 		256
+#define ERR_PARSE   			1
 
-#define PLUGIN_NB_SLEW_SPEEDS 10
-#define INTER_COMMAND_DELAY_SECONDS     0.150
-#define SHORT_RESPONSE  0x04   // EOT
-
-#define SmallestFloat               0.0000005F
-#define SIDEREAL_RATE_HZ            60.16427456104770L
-#define hzToSidereal(x)             ((x)/(double)SIDEREAL_RATE_HZ)
-#define siderealToHz(x)             ((x)*(double)SIDEREAL_RATE_HZ)
-#define fequal(x,y)                 (fabs((x)-(y))<SmallestFloat)
-#define fgt(x,y)                    ((x)-(y)>SmallestFloat)
-
-#define TSX_ARCSEC_SEC				15.0410681
+#define INTER_COMMAND_WAIT				100 //ms
+#define PLUGIN_NB_SLEW_SPEEDS 			10
+#define NO_RESPONSE_COMMAND_DELAY_MS	100
+#define SHORT_RESPONSE  				0x04   // EOT
 
 // Define Class for Astrometric Instruments OnStep controller.
 class OnStep
@@ -128,51 +120,51 @@ private:
 	SerXInterface                       *m_pSerx;
 	TheSkyXFacadeForDriversInterface    *m_pTsx;
 
-	bool    m_bIsConnected;                               // Connected to the mount?
-	int		m_nPortSpeed;
+	bool    m_bIsConnected = false;                               // Connected to the mount?
+	int		m_nPortSpeed = 9600;
 	std::string	m_sPort;
 
 	std::string m_sFirmwareVersion;
-	double  m_dRa;
-	double  m_dDec;
-	double  m_dAlt;
-	double  m_dAz;
+	double  m_dRa = 0;
+	double  m_dDec = 0;
+	double  m_dAlt = 0;
+	double  m_dAz = 270.00;
 
-	bool    m_bSyncLocationDataConnect;
-	bool    m_bHomeOnUnpark;
-	bool	m_bIsHoming;
-	bool    m_bIsAtHome;
-	bool    m_bIsParked;
-	bool	m_bIsTracking;
-	bool	m_bIsParking;
-	bool	m_bIsSlewing;
-	int     m_nNbHomingTries;
-	bool    m_bStopTrackingOnDisconnect;
-	int		m_nTrackRate;
-	int		m_nSideOfPier;
-	int     m_nGoToSlewRate;
+	bool    m_bSyncLocationDataConnect = false;
+	bool    m_bHomeOnUnpark = false;
+	bool	m_bIsHoming = false;
+	bool    m_bIsAtHome = false;
+	bool    m_bIsParked = false;
+	bool	m_bIsTracking = false;
+	bool	m_bIsParking = false;
+	bool	m_bIsSlewing = false;
+	int     m_nNbHomingTries = 0;
+	bool    m_bStopTrackingOnDisconnect = false;
+	int		m_nTrackRate = 0;
+	int		m_nSideOfPier = 0;
+	int     m_nGoToSlewRate = 0;
 
-	double m_dRaRateArcSecPerSec;
-	double m_dDecRateArcSecPerSec;
+	double m_dRaRateArcSecPerSec = 0;
+	double m_dDecRateArcSecPerSec = 0;
 
-	double  m_dParkAz;
-	double  m_dParkAlt;
+	double  m_dParkAz = 270.00;
+	double  m_dParkAlt = 0;
 
-	bool    m_bSyncDone;
-	int		m_nAlignementStars;
+	bool    m_bSyncDone = false;
+	int		m_nAlignementStars = 0;
 
 	std::string     m_sTime;
 	std::string     m_sDate;
 
-	double  m_dGotoRATarget;						  // Current Target RA;
-	double  m_dGotoDECTarget;                      // Current Goto Target Dec;
+	double  m_dGotoRATarget = 0;						  // Current Target RA;
+	double  m_dGotoDECTarget = 0;                      // Current Goto Target Dec;
 
 	MountDriverInterface::MoveDir      m_nOpenLoopDir;
 
 	// limits don't change mid-course so we cache them
-	bool    m_bLimitCached;
-	double  m_dHoursEast;
-	double  m_dHoursWest;
+	bool    m_bLimitCached = false;
+	double  m_dHoursEast = 8.0;
+	double  m_dHoursWest = 8.0;
 
 	int     sendCommand(const std::string sCmd, std::string &sResp, int nTimeout = MAX_TIMEOUT, char cEndOfResponse = '#', int nExpectedResLen = 1);
 	int     readResponse(std::string &sResp, int nTimeout = MAX_TIMEOUT, char cEndOfResponse = '#', int nExpectedResLen = 1);
@@ -195,6 +187,7 @@ private:
 
 	void    convertDecDegToDDMMSS(double dDeg, std::string &sResult);
 	void    convertDecDegToDDMMSS_ForDecl(double dDeg, std::string &sResult);
+	void	convertDecDegToDDMMSS_ForAlt(double dAlt, std::string &sResult);
 	void    convertDecAzToDDMMSSs(double dDeg, std::string &sResult);
 
 	int     convertDDMMSSToDecDeg(const std::string sStrDeg, double &dDecDeg);
@@ -205,6 +198,11 @@ private:
 
 	std::vector<std::string>    m_svSlewRateNames = {"0.25x", "0.5x", "1x (Guide)", "2x", "4x (Centering)", "8x (Move)", "24x (Slew)", "48x", "Half-Max", "Max" };
 
+	std::string&    trim(std::string &str, const std::string &filter );
+	std::string&    ltrim(std::string &str, const std::string &filter);
+	std::string&    rtrim(std::string &str, const std::string &filter);
+
+	
 	CStopWatch  m_commandDelayTimer;
 
 #ifdef PLUGIN_DEBUG

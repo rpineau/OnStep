@@ -42,6 +42,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_OnStep.setPortSpeed(m_nPortSpeed);
 		m_nSlewRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, 6);
 		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
+		m_GuideRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, 2); // 2 is guide speed, 1x
 		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
 	}
 
@@ -86,6 +87,8 @@ int X2Mount::queryAbstraction(const char* pszName, void** ppVal)
 		*ppVal = dynamic_cast<AsymmetricalEquatorialInterface*>(this);
 	else if (!strcmp(pszName, OpenLoopMoveInterface_Name))
 		*ppVal = dynamic_cast<OpenLoopMoveInterface*>(this);
+	else if (!strcmp(pszName, PulseGuideInterface2_Name))
+		*ppVal = dynamic_cast<PulseGuideInterface2*>(this);
 	else if (!strcmp(pszName, NeedsRefractionInterface_Name))
 		*ppVal = dynamic_cast<NeedsRefractionInterface*>(this);
 	else if (!strcmp(pszName, ModalSettingsDialogInterface_Name))
@@ -170,6 +173,12 @@ int X2Mount::rateIndexOpenLoopMove(void)
 	return m_CurrentRateIndex;
 }
 
+int X2Mount::useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterface** pOLSI)
+{
+	nGuideRateIndex = m_GuideRateIndex;
+	return queryAbstraction(OpenLoopMoveInterface_Name, (void**)pOLSI);
+}
+
 #pragma mark - UI binding
 
 int X2Mount::execModalSettingsDialog(void)
@@ -210,7 +219,7 @@ int X2Mount::execModalSettingsDialog(void)
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
 		if(!nErr) {
-			sTmp =sDate + " - " + sTime;
+			sTmp = sDate + " - " + sTime.substr(0,8);
 			dx->setText("time_date", sTmp.c_str());
 		}
 		m_OnStep.getSiteData(sLongitude, sLatitude, sTimeZone);
@@ -246,6 +255,10 @@ int X2Mount::execModalSettingsDialog(void)
 	m_nSlewRateIndex = m_OnStep.getGoToSlewRate();
 	dx->setCurrentIndex("comboBox_2", m_nSlewRateIndex);
 	dx->setCurrentIndex("comboBox", m_nParkPosIndex);
+
+	dx->setEnabled("comboBox_4", true);
+	dx->setCurrentIndex("comboBox_4", m_GuideRateIndex);
+
 	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
 	dx->setChecked("checkBox_2", (m_bStopTrackingOnDisconnect?1:0));
 	dx->setEnabled("checkBox_3", false); // not supported yet.
@@ -277,6 +290,8 @@ int X2Mount::execModalSettingsDialog(void)
 		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, m_nSlewRateIndex);
 
+		m_GuideRateIndex =  dx->currentIndex("comboBox_4");
+		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, m_GuideRateIndex);
 	}
 	return nErr;
 }
@@ -304,7 +319,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
 		if(!nErr) {
-			sTmp =sDate + " - " + sTime;
+			sTmp = sDate + " - " + sTime.substr(0,8);
 			uiex->setText("time_date", sTmp.c_str());
 		}
 		// Homing
@@ -358,7 +373,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		nErr = m_OnStep.getLocalTime(sTime);
 		nErr |= m_OnStep.getLocalDate(sDate);
 		if(!nErr) {
-			sTmp =sDate + " - " + sTime;
+			sTmp =sDate + " - " + sTime.substr(0,8);
 			uiex->setText("time_date", sTmp.c_str());
 		}
 
@@ -858,7 +873,7 @@ double X2Mount::flipHourAngle()
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_OnStep.getflipHourAngle(dHourAngle);
+	// nErr = m_OnStep.getflipHourAngle(dHourAngle);
 
 	return -dHourAngle;
 }
