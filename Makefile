@@ -11,8 +11,16 @@ TARGET_LIB = libOnStep.so
 SRCS = main.cpp OnStep.cpp x2mount.cpp
 OBJS = $(SRCS:.cpp=.o)
 
-.PHONY: all
-all: ${TARGET_LIB}
+.PHONY: all validate_ui
+all: validate_ui ${TARGET_LIB}
+
+validate_ui:
+	@if command -v uic >/dev/null 2>&1; then \
+		echo "Validating OnStep.ui with uic..."; \
+		uic OnStep.ui > /dev/null || (echo "UI Validation failed!" && exit 1); \
+	else \
+		echo "uic not found, skipping UI validation."; \
+	fi
 
 $(TARGET_LIB): $(OBJS)
 	$(CC) ${LDFLAGS} -o $@ $^
