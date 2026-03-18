@@ -137,9 +137,10 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 
 	if(m_commandDelayTimer.GetElapsedSeconds()<INTER_COMMAND_WAIT) {
 		dDelayMs = INTER_COMMAND_WAIT - int(m_commandDelayTimer.GetElapsedSeconds() *1000);
-		if(dDelayMs>0)
+		if(dDelayMs>0) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(dDelayMs));
 			std::this_thread::yield();
+		}
 	}
 
 	
@@ -243,7 +244,7 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 			return nErr;
 		}
 
-		if (ulBytesRead != nBytesWaiting) { // timeout
+		if (ulBytesRead != (unsigned long)nBytesWaiting) {
 	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile Timeout Error." << std::endl;
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile nBytesWaiting : " << nBytesWaiting << std::endl;
@@ -255,7 +256,7 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 		ulTotalBytesRead += ulBytesRead;
 		pszBufPtr+=ulBytesRead;
 		// response not ending with the normal end of response char.
-		if(cEndOfResponse == SHORT_RESPONSE && ulTotalBytesRead >= nExpectedResLen) // NYX adds \r\n
+		if(cEndOfResponse == SHORT_RESPONSE && ulTotalBytesRead >= (unsigned long)nExpectedResLen)
 			break;
 	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] pszBuf : "  << pszBuf <<  std::endl;
@@ -314,7 +315,7 @@ int OnStep::getStatus()
 	int nErr = PLUGIN_OK;
 	std::string sStatus;
 	int nIndex = 0;
-	unsigned long nSize;
+	int nSize;
 	nErr = sendCommand(":GU#", sStatus);
 	if(nErr) {
 	if(m_nDebugLevel >= 1) {
@@ -332,7 +333,7 @@ int OnStep::getStatus()
 	m_bIsHoming = false;
 	m_bIsAtHome = false;
 
-	nSize = sStatus.size();
+	nSize = (int)sStatus.size();
 	if(m_nDebugLevel >= 1) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sStatus (nSize) : " << sStatus << " (" << nSize << ")"<<std::endl;
 	m_sLogFile.flush();
@@ -882,9 +883,13 @@ int OnStep::getLimits(double &dHoursEast, double &dHoursWest)
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEe# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
 	}
+	} else {
+		try {
+			dHoursEast = std::stod(sResp)/15.0;
+		} catch (const std::exception& e) {
+			dHoursEast = 0.0;
+		}
 	}
-
-	dHoursEast = std::stod(sResp)/15.0;
 
 	nErr = sendCommand(":GXEw#", sResp);
 	if(nErr) {
@@ -892,9 +897,13 @@ int OnStep::getLimits(double &dHoursEast, double &dHoursWest)
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEw# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
 	}
+	} else {
+		try {
+			dHoursWest = std::stod(sResp)/15.0;
+		} catch (const std::exception& e) {
+			dHoursWest = 0.0;
+		}
 	}
-
-	dHoursWest = std::stod(sResp)/15.0;
 
 	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHoursEast  : " << std::fixed << std::setprecision(8) << dHoursEast << std::endl;
@@ -910,20 +919,11 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
-	double dEast, dWest;
+	double dWest = 0.0;
 	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
 	}
-
-	nErr = sendCommand(":GXE9#", sResp);
-	if(nErr) {
-	if(m_nDebugLevel >= 1) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXE9# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
-		m_sLogFile.flush();
-	}
-	}
-	dEast = std::fabs(std::stod(sResp))/15.0;
 
 	nErr = sendCommand(":GXEA#", sResp);
 	if(nErr) {
@@ -931,10 +931,14 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEA# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
 	}
+	} else {
+		try {
+			dWest = std::fabs(std::stod(sResp))/15.0;
+		} catch (const std::exception& e) {
+			dWest = 0.0;
+		}
 	}
-	dWest = std::fabs(std::stod(sResp))/15.0;
 
-	// dHourAngle = (dEast>dWest)?dWest:dEast; // we take the smallest one as TSX only has 1 value
 	dHourAngle = dWest;
 	
 	if(m_nDebugLevel >= 2) {
@@ -1305,7 +1309,6 @@ int OnStep::isSlewToComplete(bool &bComplete)
 int OnStep::gotoParkPos(double dAlt, double dAz)
 {
 	int nErr = PLUGIN_OK;
-	double dRa, dDec;
 	std::string sResp;
 	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
@@ -2304,4 +2307,101 @@ const std::string OnStep::getTimeStamp()
 	std::strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
 
 	return buf;
+}
+
+int ZWOMount::getLimits(double &dHoursEast, double &dHoursWest)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ZWOMount Called." << std::endl;
+		m_sLogFile.flush();
+	}
+
+	nErr = sendCommand(":GTa#", sResp);
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GTa# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
+			m_sLogFile.flush();
+		}
+		dHoursEast = 6.0;
+		dHoursWest = 6.0;
+		return PLUGIN_OK;
+	}
+
+	try {
+		// ZWO :GTa# response format: nnsnn# — digits 3-5 are limit angle past meridian in degrees
+		if (sResp.length() >= 5) {
+			std::string sAngle = sResp.substr(2, 3);
+			double dLimitDeg = std::stod(sAngle);
+			double dLimitHours = dLimitDeg / 15.0;
+			
+			dHoursEast = dLimitHours;
+			dHoursWest = dLimitHours;
+		} else {
+			dHoursEast = 6.0;
+			dHoursWest = 6.0;
+		}
+	} catch (const std::exception& e) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GTa# Parse exception : " << e.what() << std::endl;
+			m_sLogFile.flush();
+		}
+		dHoursEast = 6.0;
+		dHoursWest = 6.0;
+	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHoursEast  : " << std::fixed << std::setprecision(8) << dHoursEast << std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHoursWest  : " << std::fixed << std::setprecision(8) << dHoursWest << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
+}
+
+int ZWOMount::getflipHourAngle(double &dHourAngle)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ZWOMount Called." << std::endl;
+		m_sLogFile.flush();
+	}
+
+	nErr = sendCommand(":GTa#", sResp);
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GTa# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
+			m_sLogFile.flush();
+		}
+		dHourAngle = 0.0;
+		return PLUGIN_OK;
+	}
+
+	try {
+		// ZWO :GTa# response format: nnsnn# — digits 3-5 are limit angle past meridian in degrees
+		if (sResp.length() >= 5) {
+			std::string sAngle = sResp.substr(2, 3);
+			double dLimitDeg = std::stod(sAngle);
+			dHourAngle = std::fabs(dLimitDeg) / 15.0;
+		} else {
+			dHourAngle = 0.0;
+		}
+	} catch (const std::exception& e) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GTa# Parse exception : " << e.what() << std::endl;
+			m_sLogFile.flush();
+		}
+		dHourAngle = 0.0;
+	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHourAngle  : " << std::fixed << std::setprecision(8) << dHourAngle << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
 }

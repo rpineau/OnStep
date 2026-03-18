@@ -47,7 +47,7 @@ class OnStep
 {
 public:
 	OnStep();
-	~OnStep();
+	virtual ~OnStep();
 
 	int Connect(std::string sPort);
 	int Disconnect();
@@ -90,8 +90,8 @@ public:
 	int isUnparkDone(bool &bcomplete);
 	int setCurentPosAsPark();
 
-	int getLimits(double &dHoursEast, double &dHoursWest);
-	int getflipHourAngle(double &dHourAngle);
+	virtual int getLimits(double &dHoursEast, double &dHoursWest);
+	virtual int getflipHourAngle(double &dHourAngle);
 	int Abort();
 
 	int setSiteData(double dLongitude, double dLatitute, double dTimeZone);
@@ -113,7 +113,7 @@ public:
 
 	void setDebugLevel(int nLevel);
 	void log(std::string sLogEntry);
-private:
+protected:
 
 	SerXInterface                       *m_pSerx;
 	TheSkyXFacadeForDriversInterface    *m_pTsx;
@@ -208,6 +208,13 @@ private:
 	std::ofstream m_sLogFile;
 	std::string m_sLogfilePath;
 
+};
+
+class ZWOMount : public OnStep
+{
+public:
+	int getLimits(double &dHoursEast, double &dHoursWest) override;
+	int getflipHourAngle(double &dHourAngle) override;
 };
 
 #endif // __OnStep__

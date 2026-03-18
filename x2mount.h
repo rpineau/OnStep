@@ -177,7 +177,7 @@ public:
 	virtual bool            isBaudRateFixed() const        {return true;}
 
 	virtual SerXInterface::Parity    parity() const                {return SerXInterface::B_NOPARITY;}
-	virtual void                    setParity(const SerXInterface::Parity& parity){};
+	virtual void                    setParity(const SerXInterface::Parity& ){};
 	virtual bool                    isParityFixed() const        {return true;}
 
 	// GUI Interface
@@ -214,8 +214,7 @@ private:
 	MutexInterface*							m_pIOMutex;
 	TickCountInterface*						m_pTickCount;
 
-	// Variables for OnStep
-	OnStep m_OnStep;
+	OnStep *m_pMount;
 
 	bool 	m_bLinked;
 

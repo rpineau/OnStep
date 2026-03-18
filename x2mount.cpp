@@ -29,28 +29,33 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 
 	m_nParkPosIndex = 0;
 
-	m_OnStep.setSerxPointer(m_pSerX);
-	m_OnStep.setTSX(m_pTheSkyXForMounts);
+	std::string sSelection(pszDriverSelection);
+	if(sSelection.find("OnStep") != std::string::npos)
+		m_pMount = new OnStep();
+	else
+		m_pMount = new ZWOMount();
+
+	m_pMount->setSerxPointer(m_pSerX);
+	m_pMount->setTSX(m_pTheSkyXForMounts);
 
 	m_CurrentRateIndex = 0;
 
-	// Read the current stored values for the settings
 	if (m_pIniUtil)
 	{
 		m_bSyncOnConnect = (m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SYNC_TIME, 0) == 0 ? false : true);
 		m_bStopTrackingOnDisconnect = (m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_STOP_TRK, 1) == 0 ? false : true);
 		m_nPortSpeed = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PORT_SPEED, 9600);
-		m_OnStep.setPortSpeed(m_nPortSpeed);
+		m_pMount->setPortSpeed(m_nPortSpeed);
 		m_nSlewRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, 6);
-		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
-		m_GuideRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, 2); // 2 is guide speed, 1x
+		m_pMount->setGoToSlewRate(m_nSlewRateIndex);
+		m_GuideRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, 2);
 		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
 		m_nDebugLevel = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, 0);
-		m_OnStep.setDebugLevel(m_nDebugLevel);
+		m_pMount->setDebugLevel(m_nDebugLevel);
 	}
 
-	m_OnStep.setSyncLocationDataConnect(m_bSyncOnConnect);
-	m_OnStep.setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
+	m_pMount->setSyncLocationDataConnect(m_bSyncOnConnect);
+	m_pMount->setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
 }
 
 X2Mount::~X2Mount()
@@ -58,8 +63,10 @@ X2Mount::~X2Mount()
 	// Write the stored values
 
 	if(m_bLinked)
-		m_OnStep.Disconnect();
+		m_pMount->Disconnect();
 
+	if (m_pMount)
+		delete m_pMount;
 	if (m_pSerX)
 		delete m_pSerX;
 	if (m_pTheSkyXForMounts)
@@ -126,7 +133,7 @@ int X2Mount::startOpenLoopMove(const MountDriverInterface::MoveDir& Dir, const i
 
 
 	m_CurrentRateIndex = nRateIndex;
-	nErr = m_OnStep.startOpenLoopMove(Dir, nRateIndex);
+	nErr = m_pMount->startOpenLoopMove(Dir, nRateIndex);
 	if(nErr) {
 		return ERR_CMDFAILED;
 	}
@@ -141,7 +148,7 @@ int X2Mount::endOpenLoopMove(void)
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.stopOpenLoopMove();
+	nErr = m_pMount->stopOpenLoopMove();
 	if(nErr) {
 		return ERR_CMDFAILED;
 	}
@@ -153,7 +160,7 @@ int X2Mount::rateCountOpenLoopMove(void) const
 	X2Mount* pMe = (X2Mount*)this;
 
 	X2MutexLocker ml(pMe->GetMutex());
-	return pMe->m_OnStep.getNbSlewRates();
+	return pMe->m_pMount->getNbSlewRates();
 }
 
 int X2Mount::rateNameFromIndexOpenLoopMove(const int& nZeroBasedIndex, char* pszOut, const int& nOutMaxSize)
@@ -163,7 +170,7 @@ int X2Mount::rateNameFromIndexOpenLoopMove(const int& nZeroBasedIndex, char* psz
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.getRateName(nZeroBasedIndex, sTmp);
+	nErr = m_pMount->getRateName(nZeroBasedIndex, sTmp);
 	if(nErr) {
 		return ERR_CMDFAILED;
 	}
@@ -219,13 +226,13 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setEnabled("pushButton_4",true);
 		dx->setEnabled("comboBox", true);
 
-		nErr = m_OnStep.getLocalTime(sTime);
-		nErr |= m_OnStep.getLocalDate(sDate);
+		nErr = m_pMount->getLocalTime(sTime);
+		nErr |= m_pMount->getLocalDate(sDate);
 		if(!nErr) {
 			sTmp = sDate + " - " + sTime.substr(0,8);
 			dx->setText("time_date", sTmp.c_str());
 		}
-		m_OnStep.getSiteData(sLongitude, sLatitude, sTimeZone);
+		m_pMount->getSiteData(sLongitude, sLatitude, sTimeZone);
 		sTimeZone = std::string("GMT ") + sTimeZone;
 
 		dx->setText("longitude", sLongitude.c_str());
@@ -255,7 +262,7 @@ int X2Mount::execModalSettingsDialog(void)
 	dx->setCurrentIndex("comboBox_3", nPortSpeedIndex);
 
 	dx->setEnabled("comboBox_2", true);
-	m_nSlewRateIndex = m_OnStep.getGoToSlewRate();
+	m_nSlewRateIndex = m_pMount->getGoToSlewRate();
 	dx->setCurrentIndex("comboBox_2", m_nSlewRateIndex);
 	dx->setCurrentIndex("comboBox", m_nParkPosIndex);
 
@@ -279,25 +286,25 @@ int X2Mount::execModalSettingsDialog(void)
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SYNC_TIME, (m_bSyncOnConnect?1:0));
 
 		m_bStopTrackingOnDisconnect = (dx->isChecked("checkBox_2")==1?true:false);
-		m_OnStep.setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
+		m_pMount->setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_STOP_TRK, (m_bStopTrackingOnDisconnect?1:0));
 
 		nPortSpeedIndex = dx->currentIndex("comboBox_3");
 		m_nPortSpeed = m_svPortSpeed.at(nPortSpeedIndex);
-		m_OnStep.Reconnect(m_nPortSpeed);
+		m_pMount->Reconnect(m_nPortSpeed);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_PORT_SPEED, m_nPortSpeed);
 
 		m_nParkPosIndex = dx->currentIndex("comboBox");
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_PARK_POS, m_nParkPosIndex);
 
 		m_nSlewRateIndex =  dx->currentIndex("comboBox_2");
-		m_OnStep.setGoToSlewRate(m_nSlewRateIndex);
+		m_pMount->setGoToSlewRate(m_nSlewRateIndex);
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, m_nSlewRateIndex);
 
 		m_GuideRateIndex =  dx->currentIndex("comboBox_4");
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, m_GuideRateIndex);
 		m_nDebugLevel = dx->currentIndex("comboBox_5");
-		m_OnStep.setDebugLevel(m_nDebugLevel);
+		m_pMount->setDebugLevel(m_nDebugLevel);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, m_nDebugLevel);
 	}
 	return nErr;
@@ -323,15 +330,15 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		return ;
 
 	if (!strcmp(pszEvent, "on_timer")) {
-		nErr = m_OnStep.getLocalTime(sTime);
-		nErr |= m_OnStep.getLocalDate(sDate);
+		nErr = m_pMount->getLocalTime(sTime);
+		nErr |= m_pMount->getLocalDate(sDate);
 		if(!nErr) {
 			sTmp = sDate + " - " + sTime.substr(0,8);
 			uiex->setText("time_date", sTmp.c_str());
 		}
 		// Homing
 		if(m_bHoming) {
-			nErr = m_OnStep.isHomingDone(bComplete);
+			nErr = m_pMount->isHomingDone(bComplete);
 			if(nErr) {
 				sErrorMessage << "Error while homing : " << nErr;
 				uiex->messageBox("OnStep Homing", sErrorMessage.str().c_str());
@@ -352,7 +359,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		}
 		// Parking
 		if(m_bSettingPark) {
-			nErr = m_OnStep.isSlewToComplete(bComplete);
+			nErr = m_pMount->isSlewToComplete(bComplete);
 			if(nErr) {
 				sErrorMessage << "Error while parking : " << nErr;
 				uiex->messageBox("OnStep Parking", sErrorMessage.str().c_str());
@@ -367,7 +374,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 				return;
 			}
 			// set the current postion as the park postion
-			m_OnStep.setCurentPosAsPark();
+			m_pMount->setCurentPosAsPark();
 			setParkingButton(uiex, true);
 			m_bSettingPark = false;
 			uiex->setText("parkingProgress","New parking position set");
@@ -375,19 +382,19 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 	}
 	// Sync
 	if (!strcmp(pszEvent, "on_pushButton_clicked")) {
-		m_OnStep.syncDate();
-		m_OnStep.syncTime();
-		nErr = m_OnStep.getLocalTime(sTime);
-		nErr |= m_OnStep.getLocalDate(sDate);
+		m_pMount->syncDate();
+		m_pMount->syncTime();
+		nErr = m_pMount->getLocalTime(sTime);
+		nErr |= m_pMount->getLocalDate(sDate);
 		if(!nErr) {
 			sTmp =sDate + " - " + sTime.substr(0,8);
 			uiex->setText("time_date", sTmp.c_str());
 		}
 
-		m_OnStep.setSiteData( m_pTheSkyXForMounts->longitude(),
+		m_pMount->setSiteData( m_pTheSkyXForMounts->longitude(),
 							 m_pTheSkyXForMounts->latitude(),
 							 m_pTheSkyXForMounts->timeZone());
-		m_OnStep.getSiteData(sLongitude, sLatitude, sTimeZone);
+		m_pMount->getSiteData(sLongitude, sLatitude, sTimeZone);
 		sTimeZone = std::string("GMT ") + sTimeZone;
 
 		uiex->setText("longitude", sLongitude.c_str());
@@ -403,7 +410,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 			// disable buttons
 			setHomingButton(uiex, false);
 			m_bHoming = true;
-			m_OnStep.homeMount();
+			m_pMount->homeMount();
 			getProgress(c, true);
 			ssTmp <<  "Homing " << c;
 			uiex->setText("homingProgress",ssTmp.str().c_str());
@@ -436,7 +443,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 					dAz = 270.0;
 					break;
 			}
-			nErr = m_OnStep.gotoParkPos(dAlt, dAz);
+			nErr = m_pMount->gotoParkPos(dAlt, dAz);
 			m_bSettingPark = true;
 			getProgress(c, true);
 			ssTmp <<  "Slewing to new park position " << c;
@@ -445,7 +452,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 	}
 	// Set park to current
 	if (!strcmp(pszEvent, "on_pushButton_4_clicked")) {
-		m_OnStep.setCurentPosAsPark();
+		m_pMount->setCurentPosAsPark();
 		setParkingButton(uiex, true);
 		m_bSettingPark = false;
 		uiex->setText("parkingProgress","New parking position set");
@@ -501,7 +508,7 @@ int X2Mount::establishLink(void)
 	// get serial port device name
 	getPortName(sPortName);
 
-	nErr =  m_OnStep.Connect(sPortName);
+	nErr =  m_pMount->Connect(sPortName);
 	if(nErr) {
 		m_bLinked = false;
 	}
@@ -517,7 +524,7 @@ int X2Mount::terminateLink(void)
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.Disconnect();
+	nErr = m_pMount->Disconnect();
 	m_bLinked = false;
 
 	return nErr;
@@ -525,7 +532,7 @@ int X2Mount::terminateLink(void)
 
 bool X2Mount::isLinked(void) const
 {
-	return m_OnStep.isConnected();
+	return m_pMount->isConnected();
 }
 
 bool X2Mount::isEstablishLinkAbortable(void) const
@@ -571,7 +578,7 @@ void X2Mount::deviceInfoFirmwareVersion(BasicStringInterface& str)
 	if(m_bLinked) {
 		std::string sFirmware;
 		X2MutexLocker ml(GetMutex());
-		m_OnStep.getFirmwareVersion(sFirmware);
+		m_pMount->getFirmwareVersion(sFirmware);
 		str = sFirmware.c_str();
 	}
 	else
@@ -587,7 +594,7 @@ void X2Mount::deviceInfoModel(BasicStringInterface& str)
 }
 
 #pragma mark - Common Mount specifics
-int X2Mount::raDec(double& ra, double& dec, const bool& bCached)
+int X2Mount::raDec(double& ra, double& dec, const bool& )
 {
 	int nErr = 0;
 
@@ -597,7 +604,7 @@ int X2Mount::raDec(double& ra, double& dec, const bool& bCached)
 	X2MutexLocker ml(GetMutex());
 
 	// Get the RA and DEC from the mount
-	nErr = m_OnStep.getRaAndDec(ra, dec);
+	nErr = m_pMount->getRaAndDec(ra, dec);
 	if(nErr)
 		nErr = ERR_CMDFAILED;
 
@@ -612,7 +619,7 @@ int X2Mount::abort()
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.Abort();
+	nErr = m_pMount->Abort();
 	if(nErr) {
 		nErr = ERR_CMDFAILED;
 	}
@@ -627,7 +634,7 @@ int X2Mount::startSlewTo(const double& dRa, const double& dDec)
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_OnStep.startSlewTo(dRa, dDec);
+	nErr = m_pMount->startSlewTo(dRa, dDec);
 	if(nErr) {
 		return nErr;
 	}
@@ -643,7 +650,7 @@ int X2Mount::isCompleteSlewTo(bool& bComplete) const
 
 	X2Mount* pMe = (X2Mount*)this;
 	X2MutexLocker ml(pMe->GetMutex());
-	nErr = pMe->m_OnStep.isSlewToComplete(bComplete);
+	nErr = pMe->m_pMount->isSlewToComplete(bComplete);
 	return nErr;
 }
 
@@ -661,7 +668,7 @@ int X2Mount::syncMount(const double& ra, const double& dec)
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_OnStep.syncTo(ra, dec);
+	nErr = m_pMount->syncTo(ra, dec);
 	if(nErr) {
 		nErr = ERR_CMDFAILED;
 	}
@@ -670,14 +677,14 @@ int X2Mount::syncMount(const double& ra, const double& dec)
 
 bool X2Mount::isSynced(void)
 {
-	int nErr;
-
 	if(!m_bLinked)
 		return false;
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.isAligned(m_bSynced);
+	int nErr = m_pMount->isAligned(m_bSynced);
+	if(nErr)
+		m_pMount->log("isSynced: isAligned error");
 
 	return m_bSynced;
 }
@@ -691,7 +698,7 @@ int X2Mount::setTrackingRates(const bool& bSiderialTrackingOn, const bool& bIgno
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.setTrackingRates(bSiderialTrackingOn, bIgnoreRates, dRaRateArcSecPerSec, dDecRateArcSecPerSec);
+	nErr = m_pMount->setTrackingRates(bSiderialTrackingOn, bIgnoreRates, dRaRateArcSecPerSec, dDecRateArcSecPerSec);
 
 	return nErr;
 }
@@ -705,7 +712,7 @@ int X2Mount::trackingRates(bool& bSiderialTrackingOn, double& dRaRateArcSecPerSe
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.getTrackRates(bSiderialTrackingOn, dRaRateArcSecPerSec, dDecRateArcSecPerSec);
+	nErr = m_pMount->getTrackRates(bSiderialTrackingOn, dRaRateArcSecPerSec, dDecRateArcSecPerSec);
 	if(nErr) {
 		return ERR_CMDFAILED;
 	}
@@ -754,14 +761,14 @@ bool X2Mount::isParked(void)
 		return false;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_OnStep.getAtPark(m_bParked);
+	nErr = m_pMount->getAtPark(m_bParked);
 	if(nErr) {
 		return false;
 	}
 	return m_bParked;
 }
 
-int X2Mount::startPark(const double& dAz, const double& dAlt)
+int X2Mount::startPark(const double& , const double& )
 {
 	int nErr = SB_OK;
 
@@ -770,7 +777,7 @@ int X2Mount::startPark(const double& dAz, const double& dAlt)
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_OnStep.gotoPark();
+	nErr = m_pMount->gotoPark();
 	if (nErr) {
 		nErr = ERR_CMDFAILED;
 	}
@@ -788,7 +795,7 @@ int X2Mount::isCompletePark(bool& bComplete) const
 	X2Mount* pMe = (X2Mount*)this;
 	X2MutexLocker ml(pMe ->GetMutex());
 
-	nErr =  pMe->m_OnStep.isParkingComplete(bComplete);
+	nErr =  pMe->m_pMount->isParkingComplete(bComplete);
 	if(nErr)
 		return nErr;
 
@@ -807,7 +814,7 @@ int X2Mount::startUnpark(void)
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_OnStep.unPark();
+	nErr = m_pMount->unPark();
 	if(nErr) {
 		nErr = ERR_CMDFAILED;
 	}
@@ -830,7 +837,7 @@ int X2Mount::isCompleteUnpark(bool& bComplete) const
 	X2MutexLocker ml(pMe ->GetMutex());
 	bComplete = false;
 
-	nErr = pMe->m_OnStep.isUnparkDone(bComplete);
+	nErr = pMe->m_pMount->isUnparkDone(bComplete);
 
 	if(bComplete) { // no longer parked.
 		pMe->m_bParked = false;
@@ -865,21 +872,22 @@ int X2Mount::beyondThePole(bool& bYes) {
 		return ERR_NOLINK;
 
 	// “beyond the pole” =  “telescope west of the pier”,
-	nErr = m_OnStep.IsBeyondThePole(bYes);
+	nErr = m_pMount->IsBeyondThePole(bYes);
 	return nErr;
 }
 
 
 double X2Mount::flipHourAngle()
 {
-	int nErr = SB_OK;
 	double dHourAngle = 0.0;
 
 	if(!m_bLinked)
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	// nErr = m_OnStep.getflipHourAngle(dHourAngle);
+	int nErr = m_pMount->getflipHourAngle(dHourAngle);
+	if(nErr)
+		m_pMount->log("flipHourAngle: getflipHourAngle error");
 
 	return -dHourAngle;
 }
@@ -897,9 +905,11 @@ int X2Mount::gemLimits(double& dHoursEast, double& dHoursWest)
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_OnStep.getLimits(dHoursEast, dHoursWest);
+	nErr = m_pMount->getLimits(dHoursEast, dHoursWest);
+	if(nErr)
+		return ERR_CMDFAILED;
 
-	return SB_OK;
+	return nErr;
 }
 
 #pragma mark - SerialPortParams2Interface
