@@ -223,10 +223,35 @@ int ZWOMount::gotoPark()
 		m_sLogFile.flush();
 	}
 
-	m_bIsParking = false;
-	sendCommand(":hP#", sResp, 0);
-	std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	m_bIsParking = true;
+	m_bIsParked = false;
+	m_bParkUsesHome = false;
+
+	sendCommand(":hP#", sResp, 0);
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+	// ZWO :Gps# — 0: not parked, 1: park in progress, 2: park completed, 3: park error
+	sendCommand(":Gps#", sResp);
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Gps# after :hP# = '" << sResp << "'" << std::endl;
+		m_sLogFile.flush();
+	}
+
+	if(sResp == "1" || sResp == "2") {
+		if(m_nDebugLevel >= 2) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :hP# accepted, using park position" << std::endl;
+			m_sLogFile.flush();
+		}
+	} else {
+		if(m_nDebugLevel >= 2) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :hP# not available, falling back to :hC# (home)" << std::endl;
+			m_sLogFile.flush();
+		}
+		m_bParkUsesHome = true;
+		sendCommand(":hC#", sResp, 0);
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	}
+
 	return PLUGIN_OK;
 }
 
@@ -235,6 +260,26 @@ int ZWOMount::isParkingComplete(bool &bComplete)
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
+	if(m_bParkUsesHome) {
+		nErr = getStatus();
+		if(nErr) {
+			bComplete = false;
+			return nErr;
+		}
+		if(m_nDebugLevel >= 2) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] home mode: m_bIsAtHome=" << (m_bIsAtHome?"Yes":"No") << std::endl;
+			m_sLogFile.flush();
+		}
+		if(m_bIsAtHome) {
+			bComplete = true;
+			m_bIsParking = false;
+			m_bIsParked = true;
+		} else {
+			bComplete = false;
+		}
+		return PLUGIN_OK;
+	}
+
 	// ZWO :Gps# — 0: not parked, 1: park in progress, 2: park completed, 3: park error
 	nErr = sendCommand(":Gps#", sResp);
 	if(m_nDebugLevel >= 2) {
@@ -242,9 +287,16 @@ int ZWOMount::isParkingComplete(bool &bComplete)
 		m_sLogFile.flush();
 	}
 
-	if(nErr) {
-		bComplete = false;
-		return nErr;
+	if(nErr || sResp.empty()) {
+		nErr = getStatus();
+		if(m_bIsAtHome) {
+			bComplete = true;
+			m_bIsParking = false;
+			m_bIsParked = true;
+		} else {
+			bComplete = false;
+		}
+		return PLUGIN_OK;
 	}
 
 	if(sResp == "2") {

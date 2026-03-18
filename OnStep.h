@@ -133,6 +133,7 @@ protected:
 	bool	m_bIsHoming = false;
 	bool    m_bIsAtHome = false;
 	bool    m_bHasBeenHomed = false;
+	bool    m_bParkUsesHome = false;
 	bool    m_bIsParked = false;
 	bool	m_bIsTracking = false;
 	bool	m_bIsParking = false;
