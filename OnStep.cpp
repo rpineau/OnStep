@@ -443,9 +443,8 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 	}
 		dRa = m_dRa;
 		dDec = m_dDec;
-	return PLUGIN_OK;
-}
-
+		return PLUGIN_OK;
+	}
 	m_dRa = dRa;
 
 	// get DEC
@@ -2347,5 +2346,4 @@ const std::string OnStep::getTimeStamp()
 
 	return buf;
 }
-
 

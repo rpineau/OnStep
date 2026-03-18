@@ -323,30 +323,19 @@ int ZWOMount::isAligned(bool &bAligned)
 	std::string sResp;
 
 	if(m_nDebugLevel >= 2) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ZWOMount Called. m_bHasBeenHomed=" << (m_bHasBeenHomed?"Yes":"No") << std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 		m_sLogFile.flush();
 	}
 
 	// ZWO :Gh# — returns 0 (never homed) or 1 (has been homed)
 	nErr = sendCommand(":Gh#", sResp);
-	if(m_nDebugLevel >= 2) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Gh# nErr=" << nErr << " sResp='" << sResp << "' len=" << sResp.size() << std::endl;
-		if(sResp.size()) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Gh# bytes:";
-			for(size_t i = 0; i < sResp.size(); i++)
-				m_sLogFile << " 0x" << std::hex << (int)(unsigned char)sResp[i];
-			m_sLogFile << std::dec << std::endl;
-		}
-		m_sLogFile.flush();
-	}
-
-	if(!nErr && (sResp == "1" || sResp == "1#"))
+	if(!nErr && sResp == "1")
 		bAligned = true;
 	else
 		bAligned = m_bHasBeenHomed;
 
 	if(m_nDebugLevel >= 2) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bAligned=" << (bAligned?"Yes":"No") << std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bAligned : " << (bAligned?"Yes":"No") << std::endl;
 		m_sLogFile.flush();
 	}
 
