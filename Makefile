@@ -8,7 +8,7 @@ RM = rm -f
 STRIP = strip
 TARGET_LIB = libOnStep.so
 
-SRCS = main.cpp OnStep.cpp x2mount.cpp
+SRCS = main.cpp OnStep.cpp ZWOMount.cpp x2mount.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 .PHONY: all validate_ui

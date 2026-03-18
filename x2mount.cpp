@@ -30,21 +30,13 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_nParkPosIndex = 0;
 
 	std::string sSelection(pszDriverSelection);
-	if(sSelection.find("OnStep") != std::string::npos)
-		m_pMount = new OnStep();
-	else
+	if(sSelection.find("ZWO") != std::string::npos)
 		m_pMount = new ZWOMount();
+	else
+		m_pMount = new OnStep();
 
 	m_pMount->setSerxPointer(m_pSerX);
 	m_pMount->setTSX(m_pTheSkyXForMounts);
-
-	m_sMountVendor.assign(pszDriverSelection);
-	if(m_sMountVendor.find("OnStep") != std::string::npos) {
-		// OnStep generic
-	}
-	if(m_sMountVendor.find("ZWO") != std::string::npos) {
-		// ZWO modified OnStep
-	}
 	m_CurrentRateIndex = 0;
 
 	if (m_pIniUtil)
@@ -59,6 +51,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
 		m_nDebugLevel = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, 0);
 		m_pMount->setDebugLevel(m_nDebugLevel);
+		m_pMount->log(std::string("pszDriverSelection = '") + sSelection + "'");
 	}
 
 	m_pMount->setSyncLocationDataConnect(m_bSyncOnConnect);

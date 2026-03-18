@@ -49,7 +49,7 @@ public:
 	OnStep();
 	virtual ~OnStep();
 
-	int Connect(std::string sPort);
+	virtual int Connect(std::string sPort);
 	int Disconnect();
 	void Reconnect(int nNewPortSpeed);
 	bool isConnected() const { return m_bIsConnected; }
@@ -64,7 +64,7 @@ public:
 	int getRaAndDec(double &dRa, double &dDec);
 	int getAltAndAz(double &dAlt, double &dAz);
 	int syncTo(double dRa, double dDec);
-	int isAligned(bool &bAligned);
+	virtual int isAligned(bool &bAligned);
 
 	int setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double dRaRateArcSecPerSec, double dDecRateArcSecPerSec);
 	int getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec, double &dDecRateArcSecPerSec);
@@ -82,9 +82,9 @@ public:
 	int getRateName(int nZeroBasedIndex, std::string &sOut);
 
 	int gotoParkPos(double dAlt, double dAz);
-	int gotoPark();
+	virtual int gotoPark();
 
-	int isParkingComplete(bool &bComplete);
+	virtual int isParkingComplete(bool &bComplete);
 	int getAtPark(bool &bParked);
 	int unPark();
 	int isUnparkDone(bool &bcomplete);
@@ -132,6 +132,7 @@ protected:
 	bool    m_bHomeOnUnpark = false;
 	bool	m_bIsHoming = false;
 	bool    m_bIsAtHome = false;
+	bool    m_bHasBeenHomed = false;
 	bool    m_bIsParked = false;
 	bool	m_bIsTracking = false;
 	bool	m_bIsParking = false;
@@ -208,13 +209,6 @@ protected:
 	std::ofstream m_sLogFile;
 	std::string m_sLogfilePath;
 
-};
-
-class ZWOMount : public OnStep
-{
-public:
-	int getLimits(double &dHoursEast, double &dHoursWest) override;
-	int getflipHourAngle(double &dHourAngle) override;
 };
 
 #endif // __OnStep__

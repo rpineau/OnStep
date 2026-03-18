@@ -443,12 +443,9 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 	}
 		dRa = m_dRa;
 		dDec = m_dDec;
-		return PLUGIN_OK;
-	}
-	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dRa : " << std::fixed << std::setprecision(12) << dRa << std::endl;
-	m_sLogFile.flush();
-	}
+	return PLUGIN_OK;
+}
+
 	m_dRa = dRa;
 
 	// get DEC
@@ -996,6 +993,13 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	nErr = isAligned(bAligned);
 	if(nErr)
 		return nErr;
+	if(!bAligned) {
+	if(m_nDebugLevel >= 1) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Mount not homed/aligned, refusing slew." << std::endl;
+		m_sLogFile.flush();
+	}
+		return ERR_COMMANDNOTSUPPORTED;
+	}
 
 	setSlewRate(m_nGoToSlewRate);
 	// set sync target coordinate
@@ -1028,7 +1032,7 @@ int OnStep::slewTargetRaDecEpochNow()
 	}
 	
 	nErr = sendCommand(":MS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
+	if(nErr == COMMAND_TIMEOUT)
 		nErr = PLUGIN_OK;
 	else if(nErr) {
 	if(m_nDebugLevel >= 1) {
@@ -1038,10 +1042,20 @@ int OnStep::slewTargetRaDecEpochNow()
 		return ERR_CMDFAILED;
 	}
 	if(sResp.size()) {
-		nRespCode = std::stoi(sResp);
+		std::string sCode = sResp;
+		if(sCode.size() && sCode[0] == 'e')
+			sCode = sCode.substr(1);
+		try {
+			nRespCode = std::stoi(sCode);
+		} catch (const std::exception& e) {
+			if(m_nDebugLevel >= 1) {
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Parse error on MS# response : '" << sResp << "' : " << e.what() << std::endl;
+				m_sLogFile.flush();
+			}
+			return ERR_CMDFAILED;
+		}
 		switch(nRespCode) {
 			case 0:
-				// all good
 				break;
 
 			case 1:
@@ -1084,7 +1098,19 @@ int OnStep::slewTargetRaDecEpochNow()
 				nErr = ERR_LX200OUTSIDELIMIT;
 				break;
 
+			case 7:
+	if(m_nDebugLevel >= 1) {
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Time and position not synchronized."  << std::endl;
+				m_sLogFile.flush();
+	}
+				nErr = ERR_CMDFAILED;
+				break;
+
 			default:
+	if(m_nDebugLevel >= 1) {
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Unknown GOTO error code : " << nRespCode << std::endl;
+				m_sLogFile.flush();
+	}
 				nErr = ERR_MKS_SLEW_PAST_LIMIT;
 				break;
 
@@ -1105,7 +1131,7 @@ int OnStep::slewTargetAltAszEpochNow()
 	}
 
 	nErr = sendCommand(":MA#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
+	if(nErr == COMMAND_TIMEOUT)
 		nErr = PLUGIN_OK;
 	else if(nErr) {
 	if(m_nDebugLevel >= 1) {
@@ -1115,7 +1141,18 @@ int OnStep::slewTargetAltAszEpochNow()
 		return ERR_CMDFAILED;
 	}
 	if(sResp.size()) {
-		nRespCode = std::stoi(sResp);
+		std::string sCode = sResp;
+		if(sCode.size() && sCode[0] == 'e')
+			sCode = sCode.substr(1);
+		try {
+			nRespCode = std::stoi(sCode);
+		} catch (const std::exception& e) {
+			if(m_nDebugLevel >= 1) {
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Parse error on MA# response : '" << sResp << "' : " << e.what() << std::endl;
+				m_sLogFile.flush();
+			}
+			return ERR_CMDFAILED;
+		}
 		switch(nRespCode) {
 			case 0:
 				// all good
@@ -1574,6 +1611,8 @@ int OnStep::isHomingDone(bool &bIsHomed)
 	}
 
 	bIsHomed = m_bIsAtHome;
+	if(m_bIsAtHome)
+		m_bHasBeenHomed = true;
 	return nErr;
 }
 
@@ -2309,99 +2348,4 @@ const std::string OnStep::getTimeStamp()
 	return buf;
 }
 
-int ZWOMount::getLimits(double &dHoursEast, double &dHoursWest)
-{
-	int nErr = PLUGIN_OK;
-	std::string sResp;
 
-	if(m_nDebugLevel >= 2) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ZWOMount Called." << std::endl;
-		m_sLogFile.flush();
-	}
-
-	nErr = sendCommand(":GTa#", sResp);
-	if(nErr) {
-		if(m_nDebugLevel >= 1) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GTa# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
-			m_sLogFile.flush();
-		}
-		dHoursEast = 6.0;
-		dHoursWest = 6.0;
-		return PLUGIN_OK;
-	}
-
-	try {
-		// ZWO :GTa# response format: nnsnn# — digits 3-5 are limit angle past meridian in degrees
-		if (sResp.length() >= 5) {
-			std::string sAngle = sResp.substr(2, 3);
-			double dLimitDeg = std::stod(sAngle);
-			double dLimitHours = dLimitDeg / 15.0;
-			
-			dHoursEast = dLimitHours;
-			dHoursWest = dLimitHours;
-		} else {
-			dHoursEast = 6.0;
-			dHoursWest = 6.0;
-		}
-	} catch (const std::exception& e) {
-		if(m_nDebugLevel >= 1) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GTa# Parse exception : " << e.what() << std::endl;
-			m_sLogFile.flush();
-		}
-		dHoursEast = 6.0;
-		dHoursWest = 6.0;
-	}
-
-	if(m_nDebugLevel >= 2) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHoursEast  : " << std::fixed << std::setprecision(8) << dHoursEast << std::endl;
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHoursWest  : " << std::fixed << std::setprecision(8) << dHoursWest << std::endl;
-		m_sLogFile.flush();
-	}
-
-	return PLUGIN_OK;
-}
-
-int ZWOMount::getflipHourAngle(double &dHourAngle)
-{
-	int nErr = PLUGIN_OK;
-	std::string sResp;
-
-	if(m_nDebugLevel >= 2) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ZWOMount Called." << std::endl;
-		m_sLogFile.flush();
-	}
-
-	nErr = sendCommand(":GTa#", sResp);
-	if(nErr) {
-		if(m_nDebugLevel >= 1) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GTa# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
-			m_sLogFile.flush();
-		}
-		dHourAngle = 0.0;
-		return PLUGIN_OK;
-	}
-
-	try {
-		// ZWO :GTa# response format: nnsnn# — digits 3-5 are limit angle past meridian in degrees
-		if (sResp.length() >= 5) {
-			std::string sAngle = sResp.substr(2, 3);
-			double dLimitDeg = std::stod(sAngle);
-			dHourAngle = std::fabs(dLimitDeg) / 15.0;
-		} else {
-			dHourAngle = 0.0;
-		}
-	} catch (const std::exception& e) {
-		if(m_nDebugLevel >= 1) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GTa# Parse exception : " << e.what() << std::endl;
-			m_sLogFile.flush();
-		}
-		dHourAngle = 0.0;
-	}
-
-	if(m_nDebugLevel >= 2) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHourAngle  : " << std::fixed << std::setprecision(8) << dHourAngle << std::endl;
-		m_sLogFile.flush();
-	}
-
-	return PLUGIN_OK;
-}

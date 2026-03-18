@@ -28,8 +28,8 @@
 #include "../../licensedinterfaces/driverslewstoparkpositioninterface.h"
 #include "../../licensedinterfaces/mount/pulseguideinterface2.h"
 
-// Include files for OnStep mount
 #include "OnStep.h"
+#include "ZWOMount.h"
 
 
 #define PARENT_KEY			 "OnStepMount"
