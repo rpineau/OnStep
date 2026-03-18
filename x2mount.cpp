@@ -38,6 +38,13 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_pMount->setSerxPointer(m_pSerX);
 	m_pMount->setTSX(m_pTheSkyXForMounts);
 
+	m_sMountVendor.assign(pszDriverSelection);
+	if(m_sMountVendor.find("OnStep") != std::string::npos) {
+		// OnStep generic
+	}
+	if(m_sMountVendor.find("ZWO") != std::string::npos) {
+		// ZWO modified OnStep
+	}
 	m_CurrentRateIndex = 0;
 
 	if (m_pIniUtil)

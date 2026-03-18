@@ -232,6 +232,7 @@ private:
 	int 	m_GuideRateIndex;
 
 	int 	m_nDebugLevel;
+	std::string m_sMountVendor;
 
 	void getPortName(std::string &sPortName) const;
 
