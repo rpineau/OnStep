@@ -58,8 +58,8 @@ We implement every interface that any of the comparison plugins implement, plus 
 | **Guiding** | | | | | |
 | Pulse guide (via OLM) | `:Me#`/`:Mw#` etc | ✅ | ❌ (base) | ❌ | Needs nighttime |
 | Native pulse guide | `:Mgdnnnn#` | ✅ | ✅ | ❌ | Via DirectGuideInterface |
-| Set guide rate | `:Rg0.nn#` | ✅ | ✅ | ❌ | Via UI + INI (m_dZWOGuideRate) |
-| Get guide rate | `:Ggr#` | ✅ | ✅ | ❌ | Via UI + INI (m_dZWOGuideRate) |
+| Set guide rate | `:Rg0.nn#` | ✅ | ✅ | ❌ | Via UI + INI (m_dZWOGuideRate). UI hidden for non-ZWO. |
+| Get guide rate | `:Ggr#` | ✅ | ✅ | ❌ | Via UI + INI (m_dZWOGuideRate). UI hidden for non-ZWO. |
 | **Sync** | | | | | |
 | Sync position | `:CM#` | ✅ | ❌ (base) | ❌ | — |
 | Clear multi-star cal | `:NSC#` | ❌ | — | ❌ | — |
@@ -108,6 +108,7 @@ We implement every interface that any of the comparison plugins implement, plus 
 ### Should Implement
 - [x] **Native pulse guide** (`:Mgdnnnn#`): Implemented via `DirectGuideInterface` — more precise than OLM-based guiding. ✅
 - [x] **Guide rate get/set** (`:Rg0.nn#` / `:Ggr#`): Exposed in settings dialog, persisted via INI (`m_dZWOGuideRate`). ✅
+- [x] **Dynamic UI Hiding**: ZWO-specific UI elements (Guide Rate, Home, Park buttons) dynamically hide when a standard OnStep mount is detected. ✅
 - [ ] **Get tracking status** (`:GAT#`): Better error reporting when tracking fails.
 - [ ] **Height limits** (`:SLE#`/`:SLD#`/`:SLHnn#`/`:SLLnn#`/`:GLH#`/`:GLL#`): Expose in settings dialog for ZWO users.
 - [ ] **Meridian behavior config** (`:STannsnn#`): Expose in settings dialog for ZWO users.

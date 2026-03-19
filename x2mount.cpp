@@ -30,10 +30,13 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_nParkPosIndex = 0;
 
 	std::string sSelection(pszDriverSelection);
-	if(sSelection.find("ZWO") != std::string::npos)
+	if(sSelection.find("ZWO") != std::string::npos) {
 		m_pMount = new ZWOMount();
-	else
+		m_bIsZWOMount = true;
+	} else {
 		m_pMount = new OnStep();
+		m_bIsZWOMount = false;
+	}
 
 	m_pMount->setSerxPointer(m_pSerX);
 	m_pMount->setTSX(m_pTheSkyXForMounts);
@@ -363,8 +366,16 @@ int X2Mount::execModalSettingsDialog(void)
 
 	dx->setEnabled("comboBox_4", true);
 	dx->setCurrentIndex("comboBox_4", m_GuideRateIndex);
-	dx->setEnabled("doubleSpinBox_GuideRate", true);
-	dx->setPropertyDouble("doubleSpinBox_GuideRate", "value", m_dZWOGuideRate);
+
+	if (m_bIsZWOMount) {
+		dx->setEnabled("doubleSpinBox_GuideRate", true);
+		dx->setPropertyDouble("doubleSpinBox_GuideRate", "value", m_dZWOGuideRate);
+	} else {
+		// Hide ZWO-specific controls for standard OnStep mounts
+		dx->setPropertyInt("label_ZWOGuideRate", "visible", 0);
+		dx->setPropertyInt("doubleSpinBox_GuideRate", "visible", 0);
+	}
+
 	dx->setCurrentIndex("comboBox_5", m_nDebugLevel);
 
 	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
@@ -400,9 +411,13 @@ int X2Mount::execModalSettingsDialog(void)
 
 		m_GuideRateIndex =  dx->currentIndex("comboBox_4");
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, m_GuideRateIndex);
-		dx->propertyDouble("doubleSpinBox_GuideRate", "value", m_dZWOGuideRate);
-		m_pMount->setZWOGuideRate(m_dZWOGuideRate);
-		nErr |= m_pIniUtil->writeDouble(PARENT_KEY, CHILD_KEY_ZWO_GUIDE_RATE, m_dZWOGuideRate);
+
+		if (m_bIsZWOMount) {
+			dx->propertyDouble("doubleSpinBox_GuideRate", "value", m_dZWOGuideRate);
+			m_pMount->setZWOGuideRate(m_dZWOGuideRate);
+			nErr |= m_pIniUtil->writeDouble(PARENT_KEY, CHILD_KEY_ZWO_GUIDE_RATE, m_dZWOGuideRate);
+		}
+
 		m_nDebugLevel = dx->currentIndex("comboBox_5");
 		m_pMount->setDebugLevel(m_nDebugLevel);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, m_nDebugLevel);

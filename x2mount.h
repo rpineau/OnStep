@@ -246,6 +246,7 @@ private:
 	TickCountInterface*						m_pTickCount;
 
 	OnStep *m_pMount;
+	bool m_bIsZWOMount;
 
 	bool 	m_bLinked;
 
