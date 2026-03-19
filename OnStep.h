@@ -73,6 +73,10 @@ public:
 	int setSlewRate(int nRate);
 	void setGoToSlewRate(int nRate);
 	int getGoToSlewRate();
+
+	void setZWOGuideRate(double dRate) { m_dZWOGuideRate = dRate; }
+	double getZWOGuideRate() { return m_dZWOGuideRate; }
+
 	int startSlewTo(double dRa, double dDec);
 	int isSlewToComplete(bool &bComplete);
 
@@ -81,14 +85,16 @@ public:
 	int getNbSlewRates();
 	int getRateName(int nZeroBasedIndex, std::string &sOut);
 
-	int gotoParkPos(double dAlt, double dAz);
+	virtual int startPulseGuide(std::string sDirection, int nDurationMs);
+
+	virtual int gotoParkPos(double dAlt, double dAz);
 	virtual int gotoPark();
 
 	virtual int isParkingComplete(bool &bComplete);
 	int getAtPark(bool &bParked);
-	int unPark();
-	int isUnparkDone(bool &bcomplete);
-	int setCurentPosAsPark();
+	virtual int unPark();
+	virtual int isUnparkDone(bool &bcomplete);
+	virtual int setCurentPosAsPark();
 
 	virtual int getLimits(double &dHoursEast, double &dHoursWest);
 	virtual int getflipHourAngle(double &dHourAngle);
@@ -143,6 +149,7 @@ protected:
 	int		m_nTrackRate = 0;
 	int		m_nSideOfPier = 0;
 	int     m_nGoToSlewRate = 0;
+	double  m_dZWOGuideRate = 0.5;
 
 	double m_dRaRateArcSecPerSec = 0;
 	double m_dDecRateArcSecPerSec = 0;

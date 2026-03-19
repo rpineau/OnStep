@@ -40,6 +40,7 @@
 #define CHILD_KEY_STOP_TRK   "StopTrackingOnDisconnect"
 #define CHILD_KEY_SLEW_RATE  "SlewRate"
 #define CHILD_KEY_GUIDE_RATE "GuideRate"
+#define CHILD_KEY_ZWO_GUIDE_RATE "ZWOGuideRate"
 #define CHILD_KEY_DEBUG_LVL  "DebugLevel"
 
 #define MAX_PORT_NAME_SIZE 120
@@ -51,6 +52,23 @@
 #else
 #define __CLASS_ATTRIBUTE__(x) __attribute__(x)
 #endif
+
+class DirectGuideInterface {
+public:
+    virtual ~DirectGuideInterface() {}
+    virtual int directGuideMoveTelescope(const double& dRA, const double& dDec) = 0;
+    virtual int directGuideAbort() = 0;
+    virtual bool directGuideAsynchronous() = 0;
+    virtual int setDirectGuideAsynchronous(bool bAsync) = 0;
+};
+
+class FindHomeInterface {
+public:
+    virtual ~FindHomeInterface() {}
+    virtual int startFindHome() = 0;
+    virtual int isCompleteFindHome(bool& bComplete) const = 0;
+    virtual int endFindHome() = 0;
+};
 
 class __CLASS_ATTRIBUTE__((weak,visibility("default"))) X2Mount : public MountDriverInterface
 						,public SyncMountInterface
@@ -65,6 +83,8 @@ class __CLASS_ATTRIBUTE__((weak,visibility("default"))) X2Mount : public MountDr
                         ,public SerialPortParams2Interface
                         ,public DriverSlewsToParkPositionInterface
 						,public PulseGuideInterface2
+						,public FindHomeInterface
+						,public DirectGuideInterface
 {
 public:
 	/*!Standard X2 constructor*/
@@ -149,6 +169,17 @@ public:
 	//PulseGuideInterface
 	virtual int useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterface** pOLSI);
 
+	// DirectGuideInterface
+	virtual int directGuideMoveTelescope(const double& dRA, const double& dDec);
+	virtual int directGuideAbort();
+	virtual bool directGuideAsynchronous();
+	virtual int setDirectGuideAsynchronous(bool bAsync);
+
+	// FindHomeInterface
+	virtual int startFindHome();
+	virtual int isCompleteFindHome(bool& bComplete) const;
+	virtual int endFindHome();
+
 	//NeedsRefractionInterface
 	virtual bool							needsRefactionAdjustments(void);
 
@@ -230,6 +261,7 @@ private:
 	int		m_nPortSpeed;
 	int 	m_CurrentRateIndex;
 	int 	m_GuideRateIndex;
+	double	m_dZWOGuideRate;
 
 	int 	m_nDebugLevel;
 

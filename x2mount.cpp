@@ -48,6 +48,8 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_nSlewRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, 6);
 		m_pMount->setGoToSlewRate(m_nSlewRateIndex);
 		m_GuideRateIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, 2);
+		m_dZWOGuideRate = m_pIniUtil->readDouble(PARENT_KEY, CHILD_KEY_ZWO_GUIDE_RATE, 0.5);
+		m_pMount->setZWOGuideRate(m_dZWOGuideRate);
 		m_nParkPosIndex = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_PARK_POS, 0);
 		m_nDebugLevel = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, 0);
 		m_pMount->setDebugLevel(m_nDebugLevel);
@@ -117,6 +119,10 @@ int X2Mount::queryAbstraction(const char* pszName, void** ppVal)
 		*ppVal = dynamic_cast<SerialPortParams2Interface*>(this);
 	else if (!strcmp(pszName, DriverSlewsToParkPositionInterface_Name))
 		*ppVal = dynamic_cast<DriverSlewsToParkPositionInterface*>(this);
+	else if (!strcmp(pszName, "DirectGuideInterface"))
+		*ppVal = dynamic_cast<DirectGuideInterface*>(this);
+	else if (!strcmp(pszName, "FindHomeInterface"))
+		*ppVal = dynamic_cast<FindHomeInterface*>(this);
 
 	return SB_OK;
 }
@@ -187,6 +193,95 @@ int X2Mount::useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterfac
 {
 	nGuideRateIndex = m_GuideRateIndex;
 	return queryAbstraction(OpenLoopMoveInterface_Name, (void**)pOLSI);
+}
+
+#pragma mark - DirectGuideInterface
+
+int X2Mount::directGuideMoveTelescope(const double& dRA, const double& dDec)
+{
+	int nErr = SB_OK;
+	if(!m_bLinked)
+		return ERR_NOLINK;
+
+	X2MutexLocker ml(GetMutex());
+
+	// Convert dRA and dDec (arcseconds) into pulse duration (milliseconds)
+	// Base guide rate in arcsec/sec
+	double siderealArcsecPerSec = 15.04106858;
+	double guideArcsecPerSec = m_dZWOGuideRate * siderealArcsecPerSec;
+	if (guideArcsecPerSec == 0.0)
+		return ERR_CMDFAILED;
+
+	int raMs = std::abs(dRA) / guideArcsecPerSec * 1000.0;
+	int decMs = std::abs(dDec) / guideArcsecPerSec * 1000.0;
+
+	// Send RA pulse
+	if (raMs > 0) {
+		std::string dir = (dRA > 0) ? "e" : "w";
+		nErr = m_pMount->startPulseGuide(dir, raMs);
+		if (nErr) return nErr;
+	}
+
+	// Send DEC pulse
+	if (decMs > 0) {
+		std::string dir = (dDec > 0) ? "n" : "s";
+		nErr = m_pMount->startPulseGuide(dir, decMs);
+		if (nErr) return nErr;
+	}
+
+	return SB_OK;
+}
+
+int X2Mount::directGuideAbort()
+{
+	if(!m_bLinked)
+		return ERR_NOLINK;
+
+	X2MutexLocker ml(GetMutex());
+	return m_pMount->Abort();
+}
+
+bool X2Mount::directGuideAsynchronous()
+{
+	return true;
+}
+
+int X2Mount::setDirectGuideAsynchronous(bool /* bAsync */)
+{
+	return SB_OK;
+}
+
+#pragma mark - FindHomeInterface
+
+int X2Mount::startFindHome()
+{
+	int nErr = SB_OK;
+	if(!m_bLinked)
+		return ERR_NOLINK;
+
+	X2MutexLocker ml(GetMutex());
+	nErr = m_pMount->homeMount();
+	if(nErr) {
+		return ERR_CMDFAILED;
+	}
+	return nErr;
+}
+
+int X2Mount::isCompleteFindHome(bool& bComplete) const
+{
+	int nErr = SB_OK;
+	if(!m_bLinked)
+		return ERR_NOLINK;
+
+	X2Mount* pMe = (X2Mount*)this;
+	X2MutexLocker ml(pMe->GetMutex());
+	nErr = pMe->m_pMount->isHomingDone(bComplete);
+	return nErr;
+}
+
+int X2Mount::endFindHome()
+{
+	return SB_OK;
 }
 
 #pragma mark - UI binding
@@ -268,6 +363,8 @@ int X2Mount::execModalSettingsDialog(void)
 
 	dx->setEnabled("comboBox_4", true);
 	dx->setCurrentIndex("comboBox_4", m_GuideRateIndex);
+	dx->setEnabled("doubleSpinBox_GuideRate", true);
+	dx->setPropertyDouble("doubleSpinBox_GuideRate", "value", m_dZWOGuideRate);
 	dx->setCurrentIndex("comboBox_5", m_nDebugLevel);
 
 	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
@@ -303,6 +400,9 @@ int X2Mount::execModalSettingsDialog(void)
 
 		m_GuideRateIndex =  dx->currentIndex("comboBox_4");
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, m_GuideRateIndex);
+		dx->propertyDouble("doubleSpinBox_GuideRate", "value", m_dZWOGuideRate);
+		m_pMount->setZWOGuideRate(m_dZWOGuideRate);
+		nErr |= m_pIniUtil->writeDouble(PARENT_KEY, CHILD_KEY_ZWO_GUIDE_RATE, m_dZWOGuideRate);
 		m_nDebugLevel = dx->currentIndex("comboBox_5");
 		m_pMount->setDebugLevel(m_nDebugLevel);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, m_nDebugLevel);

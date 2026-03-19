@@ -13,6 +13,10 @@ public:
 	int isAligned(bool &bAligned) override;
 	int gotoPark() override;
 	int isParkingComplete(bool &bComplete) override;
+	int unPark() override;
+	int isUnparkDone(bool &bComplete) override;
+	int gotoParkPos(double dAlt, double dAz) override;
+	int setCurentPosAsPark() override;
 };
 
 #endif // __ZWOMount__

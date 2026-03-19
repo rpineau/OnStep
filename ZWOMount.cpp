@@ -317,17 +317,74 @@ int ZWOMount::isParkingComplete(bool &bComplete)
 
 	return PLUGIN_OK;
 }
-int ZWOMount::isAligned(bool &bAligned)
+int ZWOMount::unPark()
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
 
+	if(!m_bIsConnected)
+		return ERR_COMMNOLINK;
+
 	if(m_nDebugLevel >= 2) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ZWOMount Called." << std::endl;
 		m_sLogFile.flush();
 	}
 
-	// ZWO :Gh# — returns 0 (never homed) or 1 (has been homed)
+	// ZWO-specific unpark
+	nErr = sendCommand(":Spu#", sResp);
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Spu# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
+			m_sLogFile.flush();
+		}
+		return nErr;
+	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Spu# success" << std::endl;
+		m_sLogFile.flush();
+	}
+
+	m_bIsParked = false;
+	setTrackingRates(true, true, 0.0, 0.0);
+	return PLUGIN_OK;
+}
+
+int ZWOMount::isUnparkDone(bool &bComplete)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	if(!m_bIsConnected)
+		return ERR_COMMNOLINK;
+
+	// ZWO doesn't have an unparking state, it's instantaneous.
+	// But we can check if it's still parked just in case.
+	nErr = sendCommand(":Gps#", sResp);
+	if(nErr) {
+		// Fallback if Gps fails
+		nErr = getStatus();
+		bComplete = !m_bIsParked;
+		return PLUGIN_OK;
+	}
+
+	if (sResp.length() >= 1) {
+		int parkStatus = sResp[0] - '0';
+		if (parkStatus == 2) {
+			// Still parked
+			bComplete = false;
+			return PLUGIN_OK;
+		}
+	}
+
+	bComplete = true;
+	return PLUGIN_OK;
+}
+
+int ZWOMount::isAligned(bool &bAligned)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
 	nErr = sendCommand(":Gh#", sResp);
 	if(!nErr && sResp == "1")
 		bAligned = true;
@@ -341,6 +398,84 @@ int ZWOMount::isAligned(bool &bAligned)
 
 	return PLUGIN_OK;
 }
+int ZWOMount::gotoParkPos(double dAlt, double dAz)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+	
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. Alt: " << dAlt << " Az: " << dAz << std::endl;
+		m_sLogFile.flush();
+	}
+
+	m_bIsParking = false;
+
+	// stop tracking
+	nErr = setTrackingRates( false, true, 0.0, 0.0);
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setTrackingRates error " << nErr << std::endl;
+			m_sLogFile.flush();
+		}
+		return nErr;
+	}
+
+	// go to park coordinate
+	nErr = setTargetAltAz(dAlt, dAz);
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setTargetAltAz error " << nErr << std::endl;
+			m_sLogFile.flush();
+		}
+		return nErr;
+	}
+
+	nErr = slewTargetAltAszEpochNow();
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] slewTargetAltAszEpochNow error " << nErr << std::endl;
+			m_sLogFile.flush();
+		}
+		return nErr;
+	}
+
+	m_bIsParking = true;
+	return nErr;
+}
+
+int ZWOMount::setCurentPosAsPark()
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	if(!m_bIsConnected)
+		return ERR_COMMNOLINK;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+		m_sLogFile.flush();
+	}
+
+	// ZWO sets custom park position 1 (assuming index 01)
+	// command format: :Sp01#
+	nErr = sendCommand(":Sp01#", sResp);
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Sp01# ERROR " << nErr << std::endl;
+			m_sLogFile.flush();
+		}
+		return nErr;
+	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Sp01# success" << std::endl;
+		m_sLogFile.flush();
+	}
+
+	m_bIsParked = false;
+	return PLUGIN_OK;
+}
+
 int ZWOMount::getflipHourAngle(double &dHourAngle)
 {
 	int nErr = PLUGIN_OK;

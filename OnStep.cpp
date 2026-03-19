@@ -1271,6 +1271,27 @@ int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned 
 	return nErr;
 }
 
+int OnStep::startPulseGuide(std::string sDirection, int nDurationMs)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	if(!m_bIsConnected)
+		return ERR_COMMNOLINK;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dir: " << sDirection << " ms: " << nDurationMs << std::endl;
+		m_sLogFile.flush();
+	}
+
+	// Make sure duration is exactly 4 digits
+	std::stringstream ss;
+	ss << ":Mg" << sDirection << std::setfill('0') << std::setw(4) << nDurationMs << "#";
+
+	nErr = sendCommand(ss.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	return nErr;
+}
+
 
 int OnStep::stopOpenLoopMove()
 {

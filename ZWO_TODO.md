@@ -18,8 +18,9 @@
 | DriverSlewsToParkPositionInterface | ✅ | ✅ | ❌ | ✅ | ✅ |
 | PulseGuideInterface2 | ✅ | ❌ | ✅ | ❌ | ✅ |
 | NeedsRefractionInterface | ✅ | ✅ | ✅ | ✅ | ✅ |
+| FindHomeInterface | ❌ | ❌ | ❌ | ❌ | ✅ |
 
-We implement every interface that any of the comparison plugins implement.
+We implement every interface that any of the comparison plugins implement, plus FindHomeInterface (undocumented).
 
 ## ZWO Feature Implementation Status
 
@@ -56,9 +57,9 @@ We implement every interface that any of the comparison plugins implement.
 | Stop N/S/E/W | `:Qn#` `:Qs#` `:Qe#` `:Qw#` | ✅ | ❌ (base) | ❌ | — |
 | **Guiding** | | | | | |
 | Pulse guide (via OLM) | `:Me#`/`:Mw#` etc | ✅ | ❌ (base) | ❌ | Needs nighttime |
-| Native pulse guide | `:Mgdnnnn#` | ❌ | — | ❌ | Not implemented |
-| Set guide rate | `:Rg0.nn#` | ❌ | — | ❌ | — |
-| Get guide rate | `:Ggr#` | ❌ | — | ❌ | — |
+| Native pulse guide | `:Mgdnnnn#` | ✅ | ✅ | ❌ | Via DirectGuideInterface |
+| Set guide rate | `:Rg0.nn#` | ✅ | ✅ | ❌ | Via UI + INI (m_dZWOGuideRate) |
+| Get guide rate | `:Ggr#` | ✅ | ✅ | ❌ | Via UI + INI (m_dZWOGuideRate) |
 | **Sync** | | | | | |
 | Sync position | `:CM#` | ✅ | ❌ (base) | ❌ | — |
 | Clear multi-star cal | `:NSC#` | ❌ | — | ❌ | — |
@@ -69,8 +70,8 @@ We implement every interface that any of the comparison plugins implement.
 | **Parking** | | | | | |
 | Park (default position) | `:hP#` | ✅ | ✅ | ✅ | Falls back to :hC# when no park pos set |
 | Park status | `:Gps#` | ✅ | ✅ | ✅ | Returns empty when no park pos — fallback works |
-| Set custom park position | `:Sp01#` | ✅ (via UI) | ❌ (base) | ❌ | — |
-| Unpark | `:Spu#` | ❌ | — | ❌ | Base uses OnStep `:hR#` — **needs ZWO override** |
+| Set custom park position | `:Sp01#` | ✅ (via UI) | ✅ | ❌ | Sends `:Sp01#` to set current pos as park |
+| Unpark | `:Spu#` | ✅ | ✅ | ❌ | ZWO override sends `:Spu#` instead of `:hR#` |
 | **Meridian Limits** | | | | | |
 | Get limits | `:GTa#` | ✅ | ✅ | ✅ | Pass (returns 0 — mount default) |
 | Set meridian behavior | `:STannsnn#` | ❌ | — | ❌ | — |
@@ -101,12 +102,12 @@ We implement every interface that any of the comparison plugins implement.
 ## Priority TODO Items
 
 ### Must Fix
-- [ ] **Unpark**: Base class sends OnStep `:hR#`, ZWO needs `:Spu#`. Override `unPark()` in ZWOMount.
-- [ ] **Set custom park position**: Verify `:Sp01#` works via the existing UI button. May need ZWO override if response format differs.
+- [x] **Unpark**: ZWO override sends `:Spu#` instead of base `:hR#`. ✅
+- [x] **Set custom park position**: `:Sp01#` implemented via UI button with ZWO override. ✅
 
 ### Should Implement
-- [ ] **Native pulse guide** (`:Mgdnnnn#`): More precise than OLM-based guiding. Override OpenLoopMove or add custom guide method.
-- [ ] **Guide rate get/set** (`:Rg0.nn#` / `:Ggr#`): Expose in settings dialog or use for PulseGuide calibration.
+- [x] **Native pulse guide** (`:Mgdnnnn#`): Implemented via `DirectGuideInterface` — more precise than OLM-based guiding. ✅
+- [x] **Guide rate get/set** (`:Rg0.nn#` / `:Ggr#`): Exposed in settings dialog, persisted via INI (`m_dZWOGuideRate`). ✅
 - [ ] **Get tracking status** (`:GAT#`): Better error reporting when tracking fails.
 - [ ] **Height limits** (`:SLE#`/`:SLD#`/`:SLHnn#`/`:SLLnn#`/`:GLH#`/`:GLL#`): Expose in settings dialog for ZWO users.
 - [ ] **Meridian behavior config** (`:STannsnn#`): Expose in settings dialog for ZWO users.
@@ -138,17 +139,17 @@ We implement every interface that any of the comparison plugins implement.
 | Abort slew | ❌ Untested | |
 | Sync position | ❌ Untested | |
 | Open loop move (jog buttons) | ❌ Untested | |
-| Pulse guide (autoguiding) | ❌ Untested | Needs nighttime test with guide camera |
-| Unpark | ❌ Untested | **Needs ZWO override first** |
-| Set custom park position | ❌ Untested | Via settings dialog :Sp01# |
+| Pulse guide (autoguiding) | ❌ Untested | Implemented (DirectGuideInterface + `:Mgdnnnn#`), needs nighttime test |
+| Unpark | ❌ Untested | Implemented (`:Spu#` override), needs on-mount test |
+| Set custom park position | ❌ Untested | Implemented (`:Sp01#` override), needs on-mount test |
 | Tracking rate changes (lunar/solar) | ❌ Untested | |
 | WiFi connection | ❌ Untested | |
 | Disconnect/reconnect | ❌ Untested | |
 | Settings dialog | ❌ Untested | Partially tested (Home button works) |
 
-## Undocumented FindHomeInterface
+## Undocumented FindHomeInterface ✅ Implemented
 
-This interface enables the "Startup" -> "Find Home" menu option in TSX. If your plugin implements this, TSX queries it upon connection.
+This interface enables the "Startup" -> "Find Home" menu option in TSX. If your plugin implements this, TSX queries it upon connection. **Now implemented in this plugin.**
 
 ```cpp
 class FindHomeInterface {
