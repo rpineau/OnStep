@@ -27,33 +27,39 @@ including branches and tags.** Do not assume permission to push—always verify 
 
 ## Build Commands
 
-```bash
-# Build shared library (Linux)
-make clean              # Remove build artifacts first
-make                    # Produces libOnStep.so
+The Makefile auto-detects the platform (`uname -s`) and sets the correct flags.
 
-# Compiler flags (from Makefile)
-# CPPFLAGS = -fPIC -Wall -Wextra -O2 -g -DSB_LINUX_BUILD -std=gnu++11
-# LDFLAGS  = -shared -lstdc++
+```bash
+make clean    # Remove build artifacts
+make          # Produces libOnStep.dylib (macOS) or libOnStep.so (Linux)
 ```
 
-### macOS build
+| Platform | Output | OS flag | Link flags |
+|----------|--------|---------|------------|
+| macOS    | `libOnStep.dylib` | `-DSB_MACOSX_BUILD` | `-dynamiclib -lstdc++` |
+| Linux    | `libOnStep.so`    | `-DSB_LINUX_BUILD`  | `-shared -lstdc++`     |
 
-Use Xcode project (`OnStep.xcodeproj/`) — produces `libOnStep.dylib`.
+The Makefile also runs `uic OnStep.ui` validation before compiling if `uic` is on `PATH`
+or at the standard Homebrew path (`/usr/local/opt/qt@5/bin/uic` or `/opt/homebrew/opt/qt@5/bin/uic`).
 
 ### Windows build
 
 Use Visual Studio solution in `libOnStep/` — produces `libOnStep.dll` (32 & 64-bit).
 
-### Installation (Linux)
+### Installation (Linux and macOS)
 
-The installer script must be run from the **project root directory**, not from within `installer/`.
+The installer script is self-contained — it builds the plugin and installs it in one step.
+Run it from the project root (it is self-relocating, so the cwd does not strictly matter).
 
 ```bash
-cd ~/workspace/OnStep        # Project root
-make                                       # Build libOnStep.so
-./installer/install.sh                     # Installs to TheSkyX plugin directory
+./installer/install.sh              # build + install
+./installer/install.sh --uninstall  # remove installed files
 ```
+
+**macOS:** installs to `/Applications/TheSkyX Professional Edition.app/Contents/PlugIns/MountPlugIns/`.
+
+**Linux:** installs to `~/TheSkyX/Resources/Common/PlugIns64/MountPlugIns/` (auto-detects ARM variants).
+Override the TheSkyX home directory by setting `TSX_HOME` before running the script.
 
 ## Testing
 

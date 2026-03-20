@@ -15,8 +15,15 @@ public:
 	int isParkingComplete(bool &bComplete) override;
 	int unPark() override;
 	int isUnparkDone(bool &bComplete) override;
+	int getDeviceName(std::string &sName) override;
+	int getAtPark(bool &bParked) override;
+	int isTrackingOn(bool &bTrackOn) override;
 	int gotoParkPos(double dAlt, double dAz) override;
 	int setCurentPosAsPark() override;
+	int getHeightLimits(bool &bEnabled, int &nUpperDeg, int &nLowerDeg) override;
+	int setHeightLimits(bool bEnable, int nUpperDeg, int nLowerDeg) override;
+	int getMeridianConfig(int &nTrackPastDeg, int &nSlewPastDeg) override;
+	int setMeridianConfig(int nTrackPastDeg, int nSlewPastDeg) override;
 };
 
 #endif // __ZWOMount__

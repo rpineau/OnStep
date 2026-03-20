@@ -29,6 +29,12 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 
 	m_nParkPosIndex = 0;
 
+	m_bZWOHeightLimitsEnabled = false;
+	m_nZWOHeightLimitUpper = 90;
+	m_nZWOHeightLimitLower = 0;
+	m_nZWOMeridianTrack = 0;
+	m_nZWOMeridianSlew = 0;
+
 	std::string sSelection(pszDriverSelection);
 	if(sSelection.find("ZWO") != std::string::npos) {
 		m_pMount = new ZWOMount();
@@ -57,6 +63,12 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 		m_nDebugLevel = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, 0);
 		m_pMount->setDebugLevel(m_nDebugLevel);
 		m_pMount->log(std::string("pszDriverSelection = '") + sSelection + "'");
+
+		m_bZWOHeightLimitsEnabled = (m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_ZWO_HEIGHT_ENABLED, 0) != 0);
+		m_nZWOHeightLimitUpper = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_ZWO_HEIGHT_UPPER, 90);
+		m_nZWOHeightLimitLower = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_ZWO_HEIGHT_LOWER, 0);
+		m_nZWOMeridianTrack = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_ZWO_MERIDIAN_TRACK, 0);
+		m_nZWOMeridianSlew  = m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_ZWO_MERIDIAN_SLEW, 0);
 	}
 
 	m_pMount->setSyncLocationDataConnect(m_bSyncOnConnect);
@@ -318,11 +330,11 @@ int X2Mount::execModalSettingsDialog(void)
 	m_bHoming = false;
 	// Set values in the userinterface
 	if(m_bLinked) {
-		dx->setEnabled("pushButton",true);
-		dx->setEnabled("pushButton_2",true);
-		dx->setEnabled("pushButton_3",true);
-		dx->setEnabled("pushButton_4",true);
-		dx->setEnabled("comboBox", true);
+		dx->setEnabled("pushButton_syncNow",true);
+		dx->setEnabled("pushButton_gotoPark",true);
+		dx->setEnabled("pushButton_homeMount",true);
+		dx->setEnabled("pushButton_setCurrentPark",true);
+		dx->setEnabled("comboBox_parkPosition", true);
 
 		nErr = m_pMount->getLocalTime(sTime);
 		nErr |= m_pMount->getLocalDate(sDate);
@@ -338,11 +350,11 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setText("timezone", sTimeZone.c_str());
 	}
 	else {
-		dx->setEnabled("pushButton",false);
-		dx->setEnabled("pushButton_2",false);
-		dx->setEnabled("pushButton_3",false);
-		dx->setEnabled("pushButton_4",false);
-		dx->setEnabled("comboBox", false);
+		dx->setEnabled("pushButton_syncNow",false);
+		dx->setEnabled("pushButton_gotoPark",false);
+		dx->setEnabled("pushButton_homeMount",false);
+		dx->setEnabled("pushButton_setCurrentPark",false);
+		dx->setEnabled("comboBox_parkPosition", false);
 		dx->setText("time_date", "");
 		dx->setText("siteName", "");
 		dx->setText("longitude", "");
@@ -357,30 +369,77 @@ int X2Mount::execModalSettingsDialog(void)
 			break;
 		nPortSpeedIndex ++;
 	}
-	dx->setCurrentIndex("comboBox_3", nPortSpeedIndex);
+	dx->setCurrentIndex("comboBox_connectionSpeed", nPortSpeedIndex);
 
-	dx->setEnabled("comboBox_2", true);
+	dx->setEnabled("comboBox_slewRate", true);
 	m_nSlewRateIndex = m_pMount->getGoToSlewRate();
-	dx->setCurrentIndex("comboBox_2", m_nSlewRateIndex);
-	dx->setCurrentIndex("comboBox", m_nParkPosIndex);
+	dx->setCurrentIndex("comboBox_slewRate", m_nSlewRateIndex);
+	dx->setCurrentIndex("comboBox_parkPosition", m_nParkPosIndex);
 
-	dx->setEnabled("comboBox_4", true);
-	dx->setCurrentIndex("comboBox_4", m_GuideRateIndex);
+	dx->setEnabled("comboBox_guideRate", true);
+	dx->setCurrentIndex("comboBox_guideRate", m_GuideRateIndex);
 
 	if (m_bIsZWOMount) {
-		dx->setEnabled("doubleSpinBox_GuideRate", true);
-		dx->setPropertyDouble("doubleSpinBox_GuideRate", "value", m_dZWOGuideRate);
+		// Swap logo to ZWO branding
+		dx->setPropertyString("label_logo", "X2_PhotoFileName", "ZWO.png");
+		// Populate mount status info
+		if(m_bLinked) {
+			std::string sFirmware, sProduct;
+			bool bHomed = false;
+			m_pMount->getFirmwareVersion(sFirmware);
+			m_pMount->getDeviceName(sProduct);
+			m_pMount->isAligned(bHomed);
+			dx->setText("label_zwoFirmwareValue", sFirmware.c_str());
+			dx->setText("label_zwoProductValue",  sProduct.c_str());
+			dx->setText("label_zwoHomedValue", bHomed ? "Yes" : "No — use Startup > Find Home");
+		} else {
+			dx->setText("label_zwoFirmwareValue", "Not connected");
+			dx->setText("label_zwoProductValue",  "Not connected");
+			dx->setText("label_zwoHomedValue",    "Not connected");
+		}
+		// ZWO guide rate
+		dx->setEnabled("spinBox_zwoGuideRate", true);
+		dx->setPropertyDouble("spinBox_zwoGuideRate", "value", m_dZWOGuideRate);
+		// ZWO always syncs on connect — time/location section not needed
+		dx->setPropertyInt("groupBox_timeLocation", "visible", 0);
+		// Connection speed is fixed at 9600 for ZWO — hide the selector
+		dx->setPropertyInt("label_connectionSpeed", "visible", 0);
+		dx->setPropertyInt("comboBox_connectionSpeed", "visible", 0);
+		dx->setPropertyInt("label_connectionSpeedHint", "visible", 0);
+		// Alignment star sync not applicable to ZWO protocol
+		dx->setPropertyInt("checkBox_addAlignStars", "visible", 0);
+		// Home and park are handled by TheSkyX via FindHomeInterface/ParkInterface
+		dx->setPropertyInt("pushButton_homeMount", "visible", 0);
+		dx->setPropertyInt("homingProgress", "visible", 0);
+		dx->setPropertyInt("groupBox_parking", "visible", 0);
+
+		// Read height limits and meridian config from mount if connected
+		if(m_bLinked) {
+			bool bIgnored;
+			m_pMount->getHeightLimits(bIgnored, m_nZWOHeightLimitUpper, m_nZWOHeightLimitLower);
+			m_pMount->getMeridianConfig(m_nZWOMeridianTrack, m_nZWOMeridianSlew);
+		}
+		dx->setChecked("checkBox_zwoHeightLimitsEnabled", m_bZWOHeightLimitsEnabled ? 1 : 0);
+		dx->setPropertyInt("spinBox_zwoHeightLimitUpper", "value", m_nZWOHeightLimitUpper);
+		dx->setPropertyInt("spinBox_zwoHeightLimitLower", "value", m_nZWOHeightLimitLower);
+		dx->setPropertyInt("spinBox_zwoMeridianTrack", "value", m_nZWOMeridianTrack);
+		dx->setPropertyInt("spinBox_zwoMeridianSlew", "value", m_nZWOMeridianSlew);
 	} else {
 		// Hide ZWO-specific controls for standard OnStep mounts
-		dx->setPropertyInt("label_ZWOGuideRate", "visible", 0);
-		dx->setPropertyInt("doubleSpinBox_GuideRate", "visible", 0);
+		dx->setPropertyInt("label_zwoGuideRate", "visible", 0);
+		dx->setPropertyInt("spinBox_zwoGuideRate", "visible", 0);
+		// "Set to current position" uses ZWO-specific :Sp01# — hide for standard OnStep
+		dx->setPropertyInt("pushButton_setCurrentPark", "visible", 0);
+		dx->setEnabled("checkBox_addAlignStars", false); // not supported yet
+		// ZWO-only groups
+		dx->setPropertyInt("groupBox_zwoInfo", "visible", 0);
+		dx->setPropertyInt("groupBox_zwoAdvanced", "visible", 0);
 	}
 
-	dx->setCurrentIndex("comboBox_5", m_nDebugLevel);
+	dx->setCurrentIndex("comboBox_debugLevel", m_nDebugLevel);
 
-	dx->setChecked("checkBox", (m_bSyncOnConnect?1:0));
-	dx->setChecked("checkBox_2", (m_bStopTrackingOnDisconnect?1:0));
-	dx->setEnabled("checkBox_3", false); // not supported yet.
+	dx->setChecked("checkBox_syncOnConnect", (m_bSyncOnConnect?1:0));
+	dx->setChecked("checkBox_stopTrackingOnDisconnect", (m_bStopTrackingOnDisconnect?1:0));
 	dx->setText("homingProgress","");
 	dx->setText("parkingProgress","");
 
@@ -390,35 +449,52 @@ int X2Mount::execModalSettingsDialog(void)
 
 	//Retreive values from the user interface
 	if (bPressedOK) {
-		m_bSyncOnConnect = (dx->isChecked("checkBox")==1?true:false);
+		m_bSyncOnConnect = (dx->isChecked("checkBox_syncOnConnect")==1?true:false);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SYNC_TIME, (m_bSyncOnConnect?1:0));
 
-		m_bStopTrackingOnDisconnect = (dx->isChecked("checkBox_2")==1?true:false);
+		m_bStopTrackingOnDisconnect = (dx->isChecked("checkBox_stopTrackingOnDisconnect")==1?true:false);
 		m_pMount->setStopTrackingOnDisconnect(m_bStopTrackingOnDisconnect);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_STOP_TRK, (m_bStopTrackingOnDisconnect?1:0));
 
-		nPortSpeedIndex = dx->currentIndex("comboBox_3");
+		nPortSpeedIndex = dx->currentIndex("comboBox_connectionSpeed");
 		m_nPortSpeed = m_svPortSpeed.at(nPortSpeedIndex);
 		m_pMount->Reconnect(m_nPortSpeed);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_PORT_SPEED, m_nPortSpeed);
 
-		m_nParkPosIndex = dx->currentIndex("comboBox");
+		m_nParkPosIndex = dx->currentIndex("comboBox_parkPosition");
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_PARK_POS, m_nParkPosIndex);
 
-		m_nSlewRateIndex =  dx->currentIndex("comboBox_2");
+		m_nSlewRateIndex =  dx->currentIndex("comboBox_slewRate");
 		m_pMount->setGoToSlewRate(m_nSlewRateIndex);
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_SLEW_RATE, m_nSlewRateIndex);
 
-		m_GuideRateIndex =  dx->currentIndex("comboBox_4");
+		m_GuideRateIndex =  dx->currentIndex("comboBox_guideRate");
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, m_GuideRateIndex);
 
 		if (m_bIsZWOMount) {
-			dx->propertyDouble("doubleSpinBox_GuideRate", "value", m_dZWOGuideRate);
+			dx->propertyDouble("spinBox_zwoGuideRate", "value", m_dZWOGuideRate);
 			m_pMount->setZWOGuideRate(m_dZWOGuideRate);
 			nErr |= m_pIniUtil->writeDouble(PARENT_KEY, CHILD_KEY_ZWO_GUIDE_RATE, m_dZWOGuideRate);
+
+			m_bZWOHeightLimitsEnabled = (dx->isChecked("checkBox_zwoHeightLimitsEnabled") == 1);
+			dx->propertyInt("spinBox_zwoHeightLimitUpper", "value", m_nZWOHeightLimitUpper);
+			dx->propertyInt("spinBox_zwoHeightLimitLower", "value", m_nZWOHeightLimitLower);
+			dx->propertyInt("spinBox_zwoMeridianTrack", "value", m_nZWOMeridianTrack);
+			dx->propertyInt("spinBox_zwoMeridianSlew", "value", m_nZWOMeridianSlew);
+
+			if(m_bLinked) {
+				m_pMount->setHeightLimits(m_bZWOHeightLimitsEnabled, m_nZWOHeightLimitUpper, m_nZWOHeightLimitLower);
+				m_pMount->setMeridianConfig(m_nZWOMeridianTrack, m_nZWOMeridianSlew);
+			}
+
+			nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_ZWO_HEIGHT_ENABLED, m_bZWOHeightLimitsEnabled ? 1 : 0);
+			nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_ZWO_HEIGHT_UPPER, m_nZWOHeightLimitUpper);
+			nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_ZWO_HEIGHT_LOWER, m_nZWOHeightLimitLower);
+			nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_ZWO_MERIDIAN_TRACK, m_nZWOMeridianTrack);
+			nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_ZWO_MERIDIAN_SLEW, m_nZWOMeridianSlew);
 		}
 
-		m_nDebugLevel = dx->currentIndex("comboBox_5");
+		m_nDebugLevel = dx->currentIndex("comboBox_debugLevel");
 		m_pMount->setDebugLevel(m_nDebugLevel);
 		nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_DEBUG_LVL, m_nDebugLevel);
 	}
@@ -496,7 +572,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		}
 	}
 	// Sync
-	if (!strcmp(pszEvent, "on_pushButton_clicked")) {
+	if (!strcmp(pszEvent, "on_pushButton_syncNow_clicked")) {
 		m_pMount->syncDate();
 		m_pMount->syncTime();
 		nErr = m_pMount->getLocalTime(sTime);
@@ -517,7 +593,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		uiex->setText("timezone", sTimeZone.c_str());
 	}
 	// Home
-	if (!strcmp(pszEvent, "on_pushButton_3_clicked")) {
+	if (!strcmp(pszEvent, "on_pushButton_homeMount_clicked")) {
 		if( m_bHoming) { // Abort
 			// enable buttons
 			setHomingButton(uiex, true);
@@ -532,14 +608,14 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		}
 	}
 	// Goto new  Park
-	if (!strcmp(pszEvent, "on_pushButton_2_clicked")) {
+	if (!strcmp(pszEvent, "on_pushButton_gotoPark_clicked")) {
 		if( m_bSettingPark) { // Abort
 			// enable buttons
 			setParkingButton(uiex, true);
 		} else {								// park
 			// disable buttons
 			setParkingButton(uiex, false);
-			nParkPosIndex = uiex->currentIndex("comboBox");
+			nParkPosIndex = uiex->currentIndex("comboBox_parkPosition");
 			switch(nParkPosIndex) {
 				case 0:
 					dAlt = 0.0;
@@ -566,7 +642,7 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		}
 	}
 	// Set park to current
-	if (!strcmp(pszEvent, "on_pushButton_4_clicked")) {
+	if (!strcmp(pszEvent, "on_pushButton_setCurrentPark_clicked")) {
 		m_pMount->setCurentPosAsPark();
 		setParkingButton(uiex, true);
 		m_bSettingPark = false;
@@ -579,27 +655,27 @@ void X2Mount::setHomingButton(X2GUIExchangeInterface* uiex, bool bEnable)
 {
 	uiex->setEnabled("pushButtonOK",bEnable);
 	uiex->setEnabled("pushButtonCancel", bEnable);
-	uiex->setEnabled("pushButton", bEnable);
-	uiex->setEnabled("pushButton_2", bEnable);
-	uiex->setEnabled("pushButton_4", bEnable);
+	uiex->setEnabled("pushButton_syncNow", bEnable);
+	uiex->setEnabled("pushButton_gotoPark", bEnable);
+	uiex->setEnabled("pushButton_setCurrentPark", bEnable);
 	if(bEnable)
-		uiex->setText("pushButton_3", "Home mount");
+		uiex->setText("pushButton_homeMount", "Home mount");
 	else
-		uiex->setText("pushButton_3", "Abort");
+		uiex->setText("pushButton_homeMount", "Abort");
 }
 
 void X2Mount::setParkingButton(X2GUIExchangeInterface* uiex, bool bEnable)
 {
 	uiex->setEnabled("pushButtonOK",bEnable);
 	uiex->setEnabled("pushButtonCancel", bEnable);
-	uiex->setEnabled("pushButton", bEnable);
-	uiex->setEnabled("pushButton_3", bEnable);
-	uiex->setEnabled("pushButton_4", bEnable);
-	uiex->setEnabled("combobox", bEnable);
+	uiex->setEnabled("pushButton_syncNow", bEnable);
+	uiex->setEnabled("pushButton_homeMount", bEnable);
+	uiex->setEnabled("pushButton_setCurrentPark", bEnable);
+	uiex->setEnabled("comboBox_parkPosition", bEnable);
 	if(bEnable)
-		uiex->setText("pushButton_2", "Goto park position and set in mount");
+		uiex->setText("pushButton_gotoPark", "Goto park position and set in mount");
 	else
-		uiex->setText("pushButton_2", "Abort");
+		uiex->setText("pushButton_gotoPark", "Abort");
 }
 
 void X2Mount::getProgress(char &c, bool bReset)

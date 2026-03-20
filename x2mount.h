@@ -40,8 +40,13 @@
 #define CHILD_KEY_STOP_TRK   "StopTrackingOnDisconnect"
 #define CHILD_KEY_SLEW_RATE  "SlewRate"
 #define CHILD_KEY_GUIDE_RATE "GuideRate"
-#define CHILD_KEY_ZWO_GUIDE_RATE "ZWOGuideRate"
-#define CHILD_KEY_DEBUG_LVL  "DebugLevel"
+#define CHILD_KEY_ZWO_GUIDE_RATE     "ZWOGuideRate"
+#define CHILD_KEY_DEBUG_LVL          "DebugLevel"
+#define CHILD_KEY_ZWO_HEIGHT_ENABLED "ZWOHeightLimitsEnabled"
+#define CHILD_KEY_ZWO_HEIGHT_UPPER   "ZWOHeightLimitUpper"
+#define CHILD_KEY_ZWO_HEIGHT_LOWER   "ZWOHeightLimitLower"
+#define CHILD_KEY_ZWO_MERIDIAN_TRACK "ZWOMeridianTrack"
+#define CHILD_KEY_ZWO_MERIDIAN_SLEW  "ZWOMeridianSlew"
 
 #define MAX_PORT_NAME_SIZE 120
 
@@ -265,6 +270,12 @@ private:
 	double	m_dZWOGuideRate;
 
 	int 	m_nDebugLevel;
+
+	bool	m_bZWOHeightLimitsEnabled;
+	int		m_nZWOHeightLimitUpper;
+	int		m_nZWOHeightLimitLower;
+	int		m_nZWOMeridianTrack;
+	int		m_nZWOMeridianSlew;
 
 	void getPortName(std::string &sPortName) const;
 

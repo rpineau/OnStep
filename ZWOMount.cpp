@@ -1,3 +1,4 @@
+#include <cstdio>
 #include "ZWOMount.h"
 
 int ZWOMount::Connect(std::string sPort)
@@ -26,7 +27,7 @@ int ZWOMount::Connect(std::string sPort)
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
-	if(m_bSyncLocationDataConnect) {
+	{
 		double dLongitude = m_pTsx->longitude();
 		double dLatitude = m_pTsx->latitude();
 		double dTimeZone = m_pTsx->timeZone();
@@ -118,48 +119,92 @@ int ZWOMount::Connect(std::string sPort)
 
 	m_bSyncDone = false;
 
-	if(m_bSyncLocationDataConnect) {
-		if(m_nDebugLevel >= 2) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Sending :hC# (auto-home)" << std::endl;
+	// Query current homing state without moving the mount.
+	nErr = isHomingDone(m_bIsAtHome);
+	if(nErr) {
+		if(nErr == ERR_TXTIMEOUT)
+			m_bIsConnected = false;
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] isHomingDone error : " << nErr << std::endl;
 			m_sLogFile.flush();
 		}
-		m_bIsAtHome = false;
-		m_bHasBeenHomed = false;
-		homeMount();
-		int nHomingAttempts = 0;
-		while(!m_bIsAtHome && nHomingAttempts < 120) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(500));
-			isHomingDone(m_bIsAtHome);
-			nHomingAttempts++;
-		}
-		if(m_bIsAtHome) {
-			m_bHasBeenHomed = true;
-			if(m_nDebugLevel >= 2) {
-				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Homing complete" << std::endl;
-				m_sLogFile.flush();
-			}
-		} else {
-			if(m_nDebugLevel >= 1) {
-				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Homing timed out after 60s" << std::endl;
-				m_sLogFile.flush();
-			}
-		}
-	} else {
-		nErr = isHomingDone(m_bIsAtHome);
-		if(nErr) {
-			if(nErr == ERR_TXTIMEOUT)
-				m_bIsConnected = false;
-			if(m_nDebugLevel >= 1) {
-				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] isHomingDone error : " << nErr << std::endl;
-				m_sLogFile.flush();
-			}
-			m_bIsConnected = false;
-			return nErr;
-		}
+		m_bIsConnected = false;
+		return nErr;
 	}
+	if(m_bIsAtHome)
+		m_bHasBeenHomed = true;
 
 	setSlewRate(m_nGoToSlewRate);
 	return nErr;
+}
+
+int ZWOMount::getDeviceName(std::string &sName)
+{
+	return sendCommand(":GVP#", sName);
+}
+
+int ZWOMount::getAtPark(bool &bParked)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+		m_sLogFile.flush();
+	}
+
+	bParked = false;
+
+	// ZWO uses :Gps# for park status, not the P/p flag in :GU#
+	// :Gps# returns: 0=not parked, 1=park in progress, 2=park completed, 3=park error
+	nErr = sendCommand(":Gps#", sResp);
+	if(nErr || sResp.empty()) {
+		// Fall back to cached internal state if command fails
+		bParked = m_bIsParked;
+		return PLUGIN_OK;
+	}
+
+	bParked = (sResp[0] == '2');
+	m_bIsParked = bParked;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Gps# response='" << sResp << "' bParked=" << (bParked?"Yes":"No") << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
+}
+
+int ZWOMount::isTrackingOn(bool &bTrackOn)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+		m_sLogFile.flush();
+	}
+
+	bTrackOn = false;
+
+	// ZWO uses :GAT# for tracking status rather than the 'n' flag in :GU#
+	// Response: 0 = not tracking, non-zero = tracking active
+	nErr = sendCommand(":GAT#", sResp);
+	if(nErr || sResp.empty()) {
+		// Fall back to cached state from last :GU# parse
+		bTrackOn = m_bIsTracking;
+		return PLUGIN_OK;
+	}
+
+	bTrackOn = (sResp[0] != '0');
+	m_bIsTracking = bTrackOn;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GAT# response='" << sResp << "' bTrackOn=" << (bTrackOn?"Yes":"No") << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
 }
 
 int ZWOMount::getLimits(double &dHoursEast, double &dHoursWest)
@@ -473,6 +518,122 @@ int ZWOMount::setCurentPosAsPark()
 	}
 
 	m_bIsParked = false;
+	return PLUGIN_OK;
+}
+
+int ZWOMount::getHeightLimits(bool &bEnabled, int &nUpperDeg, int &nLowerDeg)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	// Enable/disable state has no read-back command; caller uses INI-cached value.
+	bEnabled = false;
+
+	nErr = sendCommand(":GLH#", sResp);
+	if(nErr || sResp.empty()) {
+		nUpperDeg = 90;
+	} else {
+		try { nUpperDeg = std::stoi(sResp); }
+		catch (...) { nUpperDeg = 90; }
+	}
+
+	nErr = sendCommand(":GLL#", sResp);
+	if(nErr || sResp.empty()) {
+		nLowerDeg = 0;
+	} else {
+		try { nLowerDeg = std::stoi(sResp); }
+		catch (...) { nLowerDeg = 0; }
+	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] upper=" << nUpperDeg << " lower=" << nLowerDeg << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
+}
+
+int ZWOMount::setHeightLimits(bool bEnable, int nUpperDeg, int nLowerDeg)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+	char cmd[32];
+
+	nErr = sendCommand(bEnable ? ":SLE#" : ":SLD#", sResp, 0);
+	if(nErr == COMMAND_TIMEOUT) nErr = PLUGIN_OK;
+
+	snprintf(cmd, sizeof(cmd), ":SLH%02d#", nUpperDeg);
+	nErr = sendCommand(cmd, sResp);
+	if(nErr && m_nDebugLevel >= 1) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :SLH error " << nErr << std::endl;
+		m_sLogFile.flush();
+	}
+
+	snprintf(cmd, sizeof(cmd), ":SLL%02d#", nLowerDeg);
+	nErr = sendCommand(cmd, sResp);
+	if(nErr && m_nDebugLevel >= 1) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :SLL error " << nErr << std::endl;
+		m_sLogFile.flush();
+	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] enabled=" << bEnable << " upper=" << nUpperDeg << " lower=" << nLowerDeg << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
+}
+
+int ZWOMount::getMeridianConfig(int &nTrackPastDeg, int &nSlewPastDeg)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	nErr = sendCommand(":GTa#", sResp);
+	if(nErr || sResp.length() < 5) {
+		nTrackPastDeg = 0;
+		nSlewPastDeg = 0;
+		return PLUGIN_OK;
+	}
+
+	try {
+		// ZWO :GTa# response: nnsnn# — first nn = two single-bit flags (digit1=flip, digit2=continue-tracking),
+		// snn = signed slew limit angle in degrees (0..15). We store nn as an opaque int so the round-trip
+		// through setMeridianConfig (:STa%02d%+03d#) preserves the flags exactly.
+		nTrackPastDeg = std::stoi(sResp.substr(0, 2));
+		nSlewPastDeg  = std::stoi(sResp.substr(2, 3));
+	} catch (...) {
+		nTrackPastDeg = 0;
+		nSlewPastDeg  = 0;
+	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] track=" << nTrackPastDeg << " slew=" << nSlewPastDeg << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
+}
+
+int ZWOMount::setMeridianConfig(int nTrackPastDeg, int nSlewPastDeg)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+	char cmd[32];
+
+	// :STannsnn# — nn = two single-bit flags (digit1=flip, digit2=continue-tracking), snn = signed slew limit angle (0..15 degrees past meridian)
+	snprintf(cmd, sizeof(cmd), ":STa%02d%+03d#", nTrackPastDeg, nSlewPastDeg);
+	nErr = sendCommand(cmd, sResp);
+	if(nErr && m_nDebugLevel >= 1) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :STA error " << nErr << std::endl;
+		m_sLogFile.flush();
+	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] cmd='" << cmd << "'" << std::endl;
+		m_sLogFile.flush();
+	}
+
 	return PLUGIN_OK;
 }
 

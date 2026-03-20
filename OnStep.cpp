@@ -1129,6 +1129,9 @@ int OnStep::slewTargetAltAszEpochNow()
 	m_sLogFile.flush();
 	}
 
+	// NOTE: :MA# is NOT part of the ZWO AM-series protocol (v2.1). The ZWO mount has no AltAz GOTO command.
+	// For ZWO, gotoPark() overrides this path entirely (:hP#/:hC#). If we reach here on a ZWO mount
+	// (e.g. via gotoParkPos), the command will time out and we silently continue.
 	nErr = sendCommand(":MA#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
 	if(nErr == COMMAND_TIMEOUT)
 		nErr = PLUGIN_OK;

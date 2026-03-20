@@ -27,7 +27,7 @@
      </property>
      <layout class="QVBoxLayout" name="mainLayout">
       <item>
-       <widget class="QLabel" name="label_logo_2">
+       <widget class="QLabel" name="label_logo">
         <property name="text">
          <string/>
         </property>
@@ -43,7 +43,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="label_5">
+       <widget class="QLabel" name="label_copyright">
         <property name="text">
          <string>© RTI-Zone.org, 2024</string>
         </property>
@@ -53,13 +53,73 @@
        </widget>
       </item>
       <item>
-       <widget class="QGroupBox" name="groupBox">
+       <widget class="QGroupBox" name="groupBox_zwoInfo">
+        <property name="title">
+         <string>Mount Status</string>
+        </property>
+        <layout class="QGridLayout" name="zwoInfoGrid">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_zwoFirmwareCaption">
+           <property name="text">
+            <string>Firmware version :</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLabel" name="label_zwoFirmwareValue">
+           <property name="text">
+            <string>—</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_zwoProductCaption">
+           <property name="text">
+            <string>Product name :</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="label_zwoProductValue">
+           <property name="text">
+            <string>—</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_zwoHomedCaption">
+           <property name="text">
+            <string>Homed :</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLabel" name="label_zwoHomedValue">
+           <property name="text">
+            <string>—</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="groupBox_timeLocation">
         <property name="title">
          <string>Time and Location</string>
         </property>
         <layout class="QVBoxLayout" name="groupBoxLayout">
          <item>
-          <widget class="QCheckBox" name="checkBox">
+          <widget class="QCheckBox" name="checkBox_syncOnConnect">
            <property name="text">
             <string>Automatically sync time and location on connect</string>
            </property>
@@ -68,7 +128,7 @@
          <item>
           <layout class="QHBoxLayout" name="syncLayout">
            <item>
-            <widget class="QLabel" name="label">
+            <widget class="QLabel" name="label_syncCaption">
              <property name="text">
               <string>Sync location,  timezone and time from TheSkyX :</string>
              </property>
@@ -78,7 +138,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButton">
+            <widget class="QPushButton" name="pushButton_syncNow">
              <property name="text">
               <string>Sync</string>
              </property>
@@ -89,7 +149,7 @@
          <item>
           <layout class="QGridLayout" name="locationGrid">
            <item row="0" column="0">
-            <widget class="QLabel" name="label_9">
+            <widget class="QLabel" name="label_longitudeCaption">
              <property name="text">
               <string>Longitude :</string>
              </property>
@@ -106,7 +166,7 @@
             </widget>
            </item>
            <item row="1" column="0">
-            <widget class="QLabel" name="label_11">
+            <widget class="QLabel" name="label_latitudeCaption">
              <property name="text">
               <string>Latitude :</string>
              </property>
@@ -123,7 +183,7 @@
             </widget>
            </item>
            <item row="2" column="0">
-            <widget class="QLabel" name="label_12">
+            <widget class="QLabel" name="label_timezoneCaption">
              <property name="text">
               <string>Time Zone :</string>
              </property>
@@ -140,7 +200,7 @@
             </widget>
            </item>
            <item row="3" column="0">
-            <widget class="QLabel" name="label_4">
+            <widget class="QLabel" name="label_dateTimeCaption">
              <property name="text">
               <string>date and time :</string>
              </property>
@@ -162,13 +222,13 @@
        </widget>
       </item>
       <item>
-       <widget class="QGroupBox" name="groupBox_2">
+       <widget class="QGroupBox" name="groupBox_mountSettings">
         <property name="title">
          <string>Mount settings</string>
         </property>
         <layout class="QGridLayout" name="mountGrid">
          <item row="0" column="0">
-          <widget class="QPushButton" name="pushButton_3">
+          <widget class="QPushButton" name="pushButton_homeMount">
            <property name="text">
             <string>Home mount</string>
            </property>
@@ -182,7 +242,7 @@
           </widget>
          </item>
          <item row="1" column="0">
-          <widget class="QLabel" name="label_6">
+          <widget class="QLabel" name="label_connectionSpeed">
            <property name="text">
             <string>Connection Speed :</string>
            </property>
@@ -192,7 +252,7 @@
           </widget>
          </item>
          <item row="1" column="1">
-          <widget class="QComboBox" name="comboBox_3">
+          <widget class="QComboBox" name="comboBox_connectionSpeed">
            <item>
             <property name="text">
              <string>9600</string>
@@ -226,28 +286,28 @@
           </widget>
          </item>
          <item row="1" column="2">
-          <widget class="QLabel" name="label_7">
+          <widget class="QLabel" name="label_connectionSpeedHint">
            <property name="text">
             <string>(as set in Config.h)</string>
            </property>
           </widget>
          </item>
          <item row="2" column="0" colspan="3">
-          <widget class="QCheckBox" name="checkBox_3">
+          <widget class="QCheckBox" name="checkBox_addAlignStars">
            <property name="text">
             <string>Use TheSkyX sync to add allignement stars</string>
            </property>
           </widget>
          </item>
          <item row="3" column="0" colspan="3">
-          <widget class="QCheckBox" name="checkBox_2">
+          <widget class="QCheckBox" name="checkBox_stopTrackingOnDisconnect">
            <property name="text">
             <string>Stop tracking on disconnect</string>
            </property>
           </widget>
          </item>
          <item row="4" column="0">
-          <widget class="QLabel" name="label_2">
+          <widget class="QLabel" name="label_slewRate">
            <property name="text">
             <string>Slew rate :</string>
            </property>
@@ -257,7 +317,7 @@
           </widget>
          </item>
          <item row="4" column="1">
-          <widget class="QComboBox" name="comboBox_2">
+          <widget class="QComboBox" name="comboBox_slewRate">
            <item>
             <property name="text">
              <string>0.25x</string>
@@ -311,7 +371,7 @@
           </widget>
          </item>
          <item row="5" column="0">
-          <widget class="QLabel" name="label_8">
+          <widget class="QLabel" name="label_guideRate">
            <property name="text">
             <string>Guide rate :</string>
            </property>
@@ -321,7 +381,7 @@
           </widget>
          </item>
          <item row="5" column="1">
-          <widget class="QComboBox" name="comboBox_4">
+          <widget class="QComboBox" name="comboBox_guideRate">
            <item>
             <property name="text">
              <string>0.25x</string>
@@ -340,7 +400,7 @@
           </widget>
          </item>
          <item row="6" column="0">
-          <widget class="QLabel" name="label_ZWOGuideRate">
+          <widget class="QLabel" name="label_zwoGuideRate">
            <property name="text">
             <string>ZWO Pulse Guide Rate :</string>
            </property>
@@ -350,7 +410,7 @@
           </widget>
          </item>
          <item row="6" column="1">
-          <widget class="QDoubleSpinBox" name="doubleSpinBox_GuideRate">
+          <widget class="QDoubleSpinBox" name="spinBox_zwoGuideRate">
            <property name="decimals">
             <number>1</number>
            </property>
@@ -369,7 +429,7 @@
           </widget>
          </item>
          <item row="7" column="0">
-          <widget class="QLabel" name="label_10">
+          <widget class="QLabel" name="label_debugLevel">
            <property name="text">
             <string>Debug log :</string>
            </property>
@@ -379,7 +439,7 @@
           </widget>
          </item>
          <item row="7" column="1">
-          <widget class="QComboBox" name="comboBox_5">
+          <widget class="QComboBox" name="comboBox_debugLevel">
            <item>
             <property name="text">
              <string>Off</string>
@@ -406,20 +466,20 @@
        </widget>
       </item>
       <item>
-       <widget class="QGroupBox" name="groupBox_3">
+       <widget class="QGroupBox" name="groupBox_parking">
         <property name="title">
          <string>Parking</string>
         </property>
         <layout class="QGridLayout" name="parkingGrid">
          <item row="0" column="0">
-          <widget class="QLabel" name="label_3">
+          <widget class="QLabel" name="label_parkPosition">
            <property name="text">
             <string>Park position (Atl/Az):</string>
            </property>
           </widget>
          </item>
          <item row="0" column="1" colspan="2">
-          <widget class="QComboBox" name="comboBox">
+          <widget class="QComboBox" name="comboBox_parkPosition">
            <item>
             <property name="text">
              <string>+00º 00' 00.0&quot; / 270º 00' 00.0&quot;</string>
@@ -438,14 +498,14 @@
           </widget>
          </item>
          <item row="1" column="0" colspan="2">
-          <widget class="QPushButton" name="pushButton_2">
+          <widget class="QPushButton" name="pushButton_gotoPark">
            <property name="text">
             <string>Goto park position and set in mount</string>
            </property>
           </widget>
          </item>
          <item row="1" column="2">
-          <widget class="QPushButton" name="pushButton_4">
+          <widget class="QPushButton" name="pushButton_setCurrentPark">
            <property name="text">
             <string>Set to current position</string>
            </property>
@@ -455,6 +515,142 @@
           <widget class="QLabel" name="parkingProgress">
            <property name="text">
             <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="groupBox_zwoAdvanced">
+        <property name="title">
+         <string>ZWO Altitude and Meridian Limits</string>
+        </property>
+        <layout class="QGridLayout" name="zwoAdvancedGrid">
+         <item row="0" column="0" colspan="3">
+          <widget class="QCheckBox" name="checkBox_zwoHeightLimitsEnabled">
+           <property name="text">
+            <string>Enable altitude (height) limits</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_zwoHeightLimitUpper">
+           <property name="text">
+            <string>Upper altitude limit :</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QSpinBox" name="spinBox_zwoHeightLimitUpper">
+           <property name="minimum">
+            <number>0</number>
+           </property>
+           <property name="maximum">
+            <number>90</number>
+           </property>
+           <property name="value">
+            <number>90</number>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QLabel" name="label_zwoHeightLimitUpperUnit">
+           <property name="text">
+            <string>°</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_zwoHeightLimitLower">
+           <property name="text">
+            <string>Lower altitude limit :</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QSpinBox" name="spinBox_zwoHeightLimitLower">
+           <property name="minimum">
+            <number>-90</number>
+           </property>
+           <property name="maximum">
+            <number>90</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="2">
+          <widget class="QLabel" name="label_zwoHeightLimitLowerUnit">
+           <property name="text">
+            <string>°</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_zwoMeridianTrack">
+           <property name="text">
+            <string>Track past meridian :</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QSpinBox" name="spinBox_zwoMeridianTrack">
+           <property name="minimum">
+            <number>0</number>
+           </property>
+           <property name="maximum">
+            <number>90</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="2">
+          <widget class="QLabel" name="label_zwoMeridianTrackUnit">
+           <property name="text">
+            <string>°</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_zwoMeridianSlew">
+           <property name="text">
+            <string>Slew past meridian :</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QSpinBox" name="spinBox_zwoMeridianSlew">
+           <property name="minimum">
+            <number>-90</number>
+           </property>
+           <property name="maximum">
+            <number>90</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="2">
+          <widget class="QLabel" name="label_zwoMeridianSlewUnit">
+           <property name="text">
+            <string>°</string>
            </property>
           </widget>
          </item>

@@ -68,7 +68,7 @@ public:
 
 	int setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double dRaRateArcSecPerSec, double dDecRateArcSecPerSec);
 	int getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec, double &dDecRateArcSecPerSec);
-	int isTrackingOn(bool &bTrakOn);
+	virtual int isTrackingOn(bool &bTrakOn);
 
 	int setSlewRate(int nRate);
 	void setGoToSlewRate(int nRate);
@@ -91,7 +91,7 @@ public:
 	virtual int gotoPark();
 
 	virtual int isParkingComplete(bool &bComplete);
-	int getAtPark(bool &bParked);
+	virtual int getAtPark(bool &bParked);
 	virtual int unPark();
 	virtual int isUnparkDone(bool &bcomplete);
 	virtual int setCurentPosAsPark();
@@ -111,6 +111,13 @@ public:
 
 	int homeMount();
 	int isHomingDone(bool &bIsHomed);
+
+	virtual int getDeviceName(std::string &sName) { sName = ""; return PLUGIN_OK; }
+
+	virtual int getHeightLimits(bool &bEnabled, int &nUpperDeg, int &nLowerDeg) { bEnabled = false; nUpperDeg = 90; nLowerDeg = 0; return PLUGIN_OK; }
+	virtual int setHeightLimits(bool /*bEnable*/, int /*nUpperDeg*/, int /*nLowerDeg*/) { return PLUGIN_OK; }
+	virtual int getMeridianConfig(int &nTrackPastDeg, int &nSlewPastDeg) { nTrackPastDeg = 0; nSlewPastDeg = 0; return PLUGIN_OK; }
+	virtual int setMeridianConfig(int /*nTrackPastDeg*/, int /*nSlewPastDeg*/) { return PLUGIN_OK; }
 
 	int IsBeyondThePole(bool &bBeyondPole);
 
