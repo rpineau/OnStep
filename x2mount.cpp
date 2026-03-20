@@ -932,7 +932,7 @@ int X2Mount::siderealTrackingOn()
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = setTrackingRates( true, true, 0.0, 0.0);
+	nErr = m_pMount->setTrackingRates(true, true, 0.0, 0.0);
 	return nErr;
 }
 
@@ -943,7 +943,7 @@ int X2Mount::trackingOff()
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = setTrackingRates( false, true, 0.0, 0.0);
+	nErr = m_pMount->setTrackingRates(false, true, 0.0, 0.0);
 	return nErr;
 }
 
@@ -1065,16 +1065,16 @@ int X2Mount::endUnpark(void)
 
 bool X2Mount::knowsBeyondThePole()
 {
-	X2MutexLocker ml(GetMutex());
 	return true;
 }
 
 int X2Mount::beyondThePole(bool& bYes) {
 	int nErr = SB_OK;
-	X2MutexLocker ml(GetMutex());
 
 	if(!m_bLinked)
 		return ERR_NOLINK;
+
+	X2MutexLocker ml(GetMutex());
 
 	// “beyond the pole” =  “telescope west of the pier”,
 	nErr = m_pMount->IsBeyondThePole(bYes);
