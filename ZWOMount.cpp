@@ -135,6 +135,16 @@ int ZWOMount::Connect(std::string sPort)
 		m_bHasBeenHomed = true;
 
 	setSlewRate(m_nGoToSlewRate);
+
+	// Read guide rate from mount so m_dZWOGuideRate reflects actual hardware state.
+	double dGuideRate;
+	if(getGuideRate(dGuideRate) != PLUGIN_OK) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] getGuideRate failed, keeping default" << std::endl;
+			m_sLogFile.flush();
+		}
+	}
+
 	return nErr;
 }
 
@@ -628,6 +638,66 @@ int ZWOMount::setMeridianConfig(int nTrackPastDeg, int nSlewPastDeg)
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :STA error " << nErr << std::endl;
 		m_sLogFile.flush();
 	}
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] cmd='" << cmd << "'" << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
+}
+
+int ZWOMount::getGuideRate(double &dRate)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	nErr = sendCommand(":Ggr#", sResp);
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :Ggr# ERROR " << nErr << std::endl;
+			m_sLogFile.flush();
+		}
+		return nErr;
+	}
+
+	try {
+		dRate = std::stod(sResp);
+	} catch(...) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] parse error sResp='" << sResp << "'" << std::endl;
+			m_sLogFile.flush();
+		}
+		return COMMAND_FAILED;
+	}
+
+	m_dZWOGuideRate = dRate;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] rate=" << dRate << std::endl;
+		m_sLogFile.flush();
+	}
+
+	return PLUGIN_OK;
+}
+
+int ZWOMount::setGuideRate(double dRate)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+	char cmd[32];
+
+	snprintf(cmd, sizeof(cmd), ":Rg%.2f#", dRate);
+	nErr = sendCommand(cmd, sResp);
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] " << cmd << " ERROR " << nErr << std::endl;
+			m_sLogFile.flush();
+		}
+		return nErr;
+	}
+
+	m_dZWOGuideRate = dRate;
 
 	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] cmd='" << cmd << "'" << std::endl;

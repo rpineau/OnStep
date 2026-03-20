@@ -58,8 +58,8 @@ We implement every interface that any of the comparison plugins implement, plus 
 | **Guiding** | | | | | |
 | Pulse guide (via OLM) | `:Me#`/`:Mw#` etc | ✅ | ❌ (base) | ❌ | Needs nighttime |
 | Native pulse guide | `:Mgdnnnn#` | ✅ | ✅ | ❌ | Via DirectGuideInterface |
-| Set guide rate | `:Rg0.nn#` | ✅ | ✅ | ❌ | Via UI + INI (m_dZWOGuideRate). UI hidden for non-ZWO. |
-| Get guide rate | `:Ggr#` | ✅ | ✅ | ❌ | Via UI + INI (m_dZWOGuideRate). UI hidden for non-ZWO. |
+| Set guide rate | `:Rg0.nn#` | ✅ | ✅ | ❌ | `setGuideRate()` sends `:Rg%.2f#`. Called on settings dialog save when connected. |
+| Get guide rate | `:Ggr#` | ✅ | ✅ | ❌ | `getGuideRate()` called at end of `Connect()`; result synced into `X2Mount::m_dZWOGuideRate` so DirectGuide math and settings dialog both reflect actual mount state. |
 | **Sync** | | | | | |
 | Sync position | `:CM#` | ✅ | ❌ (base) | ❌ | — |
 | Clear multi-star cal | `:NSC#` | ❌ | — | ❌ | — |
@@ -71,7 +71,7 @@ We implement every interface that any of the comparison plugins implement, plus 
 | Park (default position) | `:hP#` | ✅ | ✅ | ✅ | Falls back to :hC# when no park pos set |
 | Park status | `:Gps#` | ✅ | ✅ | ✅ | Returns empty when no park pos — fallback works |
 | Park status (isParked) | `:Gps#` | ✅ | ✅ | ❌ | ZWO override of `getAtPark()` uses `:Gps#`; `2`=parked. Was broken: base used `:GU#` P-flag which ZWO doesn't set. |
-| Set custom park position | `:Sp01#` | ✅ | ✅ | ❌ | `setCurentPosAsPark()` implemented. Dialog button removed (park section hidden for ZWO); TSX has no direct path to call this. See Nice to Have. |
+| Set custom park position | `:Sp01#` | ✅ | ✅ | ❌ | `setCurentPosAsPark()` callable via "Set Current Position as Park" button in `groupBox_zwoAdvanced`. TSX "Set Park Position" has no driver callback — it stores position internally and passes it via `startPark(dAz, dAlt)`, which we cannot honor (no AltAz slew on ZWO). |
 | Unpark | `:Spu#` | ✅ | ✅ | ❌ | ZWO override sends `:Spu#` instead of `:hR#` |
 | **Meridian Limits** | | | | | |
 | Get limits | `:GTa#` | ✅ | ✅ | ✅ | Pass (returns 0 — mount default) |
@@ -104,7 +104,7 @@ We implement every interface that any of the comparison plugins implement, plus 
 
 ### Must Fix
 - [x] **Unpark**: ZWO override sends `:Spu#` instead of base `:hR#`. ✅
-- [x] **Set custom park position**: `:Sp01#` implemented via UI button with ZWO override. ✅
+- [x] **Set custom park position**: `:Sp01#` callable via "Set Current Position as Park" button in ZWO Advanced settings group. TSX's "Set Park Position" menu has no driver callback; our button is the ZWO equivalent. ✅
 
 ### Should Implement
 - [x] **Native pulse guide** (`:Mgdnnnn#`): Implemented via `DirectGuideInterface` — more precise than OLM-based guiding. ✅
@@ -116,7 +116,6 @@ We implement every interface that any of the comparison plugins implement, plus 
 - [x] **Meridian behavior config** (`:STannsnn#`): Exposed in settings dialog (track + slew past meridian), applied on OK. ✅
 
 ### Nice to Have
-- [ ] **Set custom park position**: Now that the ZWO park section is hidden from the dialog, `setCurentPosAsPark()` (`:Sp01#`) is unreachable from the UI. Consider re-exposing via a button in `groupBox_zwoAdvanced`, or accept that park position is fixed at home.
 - [ ] **Daylight saving** (`:GH#`/`:SHn#`): The SMTI compound command handles timezone; DST might need explicit handling.
 - [ ] **Clear multi-star calibration** (`:NSC#`): Add button to settings dialog.
 - [ ] **WiFi connection**: Test over WiFi (192.168.4.1:4030) in addition to USB serial.
@@ -147,7 +146,7 @@ We implement every interface that any of the comparison plugins implement, plus 
 | Open loop move (jog buttons) | ❌ Untested | |
 | Pulse guide (autoguiding) | ❌ Untested | Implemented (DirectGuideInterface + `:Mgdnnnn#`), needs nighttime test |
 | Unpark | ❌ Untested | Implemented (`:Spu#` override), needs on-mount test |
-| Set custom park position | ❌ Untested | Implemented (`:Sp01#` override), needs on-mount test |
+| Set custom park position | ❌ Untested | "Set Current Position as Park" button in ZWO Advanced settings (enabled only when connected). Calls `:Sp01#`. Needs on-mount test. |
 | Tracking rate changes (lunar/solar) | ❌ Untested | |
 | WiFi connection | ❌ Untested | |
 | Disconnect/reconnect | ❌ Untested | |
@@ -168,6 +167,18 @@ public:
 ```
 
 TSX expects `startSlewTo` to return `ERR_MOUNTNOTHOMED` (231) if the mount needs homing but hasn't done it yet.
+
+### TSX "Set Park Position" / "Clear Park Position" — No Driver Interface
+
+Investigated via string search of `TheSkyX` binary, all licensed interface headers, and comparison plugin `.dylib` files. **Conclusion: there is no `SetParkPositionInterface` or `ClearParkPositionInterface`.** TSX handles these menu actions internally:
+
+- **"Set Park Position"**: TSX records the current telescope position in its own state (`m_dSoftwareParkAlt` / `m_dSoftwareParkAz`). No driver callback.
+- **"Clear Park Position"**: Clears TSX's internally stored park coordinates. No driver callback.
+- **"Park"**: TSX calls `startPark(dAz, dAlt)` with the stored coordinates. Since we implement `DriverSlewsToParkPositionInterface`, TSX expects us to slew there.
+
+For standard OnStep, `startPark(dAz, dAlt)` → `gotoParkPos()` → `:MA#` (AltAz slew). For ZWO, `:MA#` doesn't exist. Our ZWO `gotoPark()` override sends `:hP#` (go to mount's stored park position), ignoring the TSX-provided coordinates.
+
+**ZWO workaround**: Use the "Set Current Position as Park" button in the settings dialog (ZWO Advanced section). Move the mount to the desired park position, then open settings and click the button — this sends `:Sp01#` to store that position in the mount. Subsequent `:hP#` park commands will return to that position.
 
 ### ZWO Protocol Implementation Notes
 

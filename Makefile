@@ -33,7 +33,7 @@ CPPFLAGS = -fPIC -Wall -Wextra -O2 -g $(OS_FLAG) -std=gnu++11 -I. -I$(SDK_LI) $(
 SRCS = main.cpp OnStep.cpp ZWOMount.cpp x2mount.cpp
 OBJS = $(SRCS:.cpp=.o)
 
-.PHONY: all clean validate_ui
+.PHONY: all clean validate_ui install
 
 all: validate_ui $(TARGET_LIB)
 
@@ -52,6 +52,9 @@ $(TARGET_LIB): $(OBJS)
 
 %.o: %.cpp
 	$(CXX) $(CPPFLAGS) -c $< -o $@
+
+install: $(TARGET_LIB)
+	./installer/install.sh
 
 clean:
 	$(RM) libOnStep.so libOnStep.dylib $(OBJS)

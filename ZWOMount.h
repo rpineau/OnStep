@@ -24,6 +24,8 @@ public:
 	int setHeightLimits(bool bEnable, int nUpperDeg, int nLowerDeg) override;
 	int getMeridianConfig(int &nTrackPastDeg, int &nSlewPastDeg) override;
 	int setMeridianConfig(int nTrackPastDeg, int nSlewPastDeg) override;
+	int getGuideRate(double &dRate) override;
+	int setGuideRate(double dRate) override;
 };
 
 #endif // __ZWOMount__

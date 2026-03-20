@@ -48,13 +48,24 @@ Use Visual Studio solution in `libOnStep/` — produces `libOnStep.dll` (32 & 64
 
 ### Installation (Linux and macOS)
 
-The installer script is self-contained — it builds the plugin and installs it in one step.
-Run it from the project root (it is self-relocating, so the cwd does not strictly matter).
+Build and install are separate steps. The installer only copies pre-built files — it
+does **not** build anything. If the binary is missing it will fail immediately.
 
 ```bash
-./installer/install.sh              # build + install
-./installer/install.sh --uninstall  # remove installed files
+make                                # build only
+make install                        # build (if needed) then install
+./installer/install.sh              # install only (binary must already exist)
+./installer/install.sh --uninstall  # remove all installed files
 ```
+
+The installer is designed to be **packaged with compiled binaries** for distribution.
+End users run `install.sh` directly; developers use `make install`.
+
+**Installed files** (all copied to the mount plugin directory):
+- `libOnStep.dylib` / `libOnStep.so` — the driver shared library
+- `OnStep.ui` — settings dialog layout
+- `OnStep.png`, `ZWO.png` — logos
+- `mountlist OnStep.txt` — mount name list (copied to TheSkyX Miscellaneous Files)
 
 **macOS:** installs to `/Applications/TheSkyX Professional Edition.app/Contents/PlugIns/MountPlugIns/`.
 

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# install.sh — Build and install the OnStep X2 mount plugin for TheSkyX
+# install.sh — Install the OnStep X2 mount plugin for TheSkyX
 #
-# Usage (run from the project root, or from anywhere — script is self-relocating):
-#   ./installer/install.sh              # build and install
+# This script ONLY installs pre-built binaries. It does not build anything.
+# Run `make` first (or `make install` to do both in one step).
+#
+# Usage:
+#   ./installer/install.sh              # install
 #   ./installer/install.sh --uninstall  # remove installed files
 #
 # No sudo needed if you own the TheSkyX app bundle (typical single-user install).
@@ -26,7 +29,6 @@ case "${UNAME_S}" in
         ;;
     Linux)
         TSX_HOME="${HOME}/TheSkyX"
-        # Detect the installed architecture variant
         PLUGINS_ROOT=""
         for ARCH_DIR in PlugIns64 PlugInsARM64 PlugInsARM32 PlugIns; do
             if [ -d "${TSX_HOME}/Resources/Common/${ARCH_DIR}" ]; then
@@ -69,6 +71,12 @@ fi
 # ---------------------------------------------------------------------------
 # Pre-flight checks
 # ---------------------------------------------------------------------------
+if [[ ! -f "${PROJECT_DIR}/${LIB_NAME}" ]]; then
+    echo "ERROR: ${LIB_NAME} not found in project directory." >&2
+    echo "  Run 'make' first, or use 'make install' to build and install together." >&2
+    exit 1
+fi
+
 if [[ ! -d "${PLUGIN_DIR}" ]]; then
     echo "ERROR: Plugin directory not found:" >&2
     echo "  ${PLUGIN_DIR}" >&2
@@ -85,19 +93,6 @@ fi
 if [[ ! -f "${PROJECT_DIR}/${LIST_FILE}" ]]; then
     echo "ERROR: Mount list file not found:" >&2
     echo "  ${PROJECT_DIR}/${LIST_FILE}" >&2
-    exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# Build
-# ---------------------------------------------------------------------------
-echo "Building ${LIB_NAME}..."
-cd "${PROJECT_DIR}"
-make clean
-make
-
-if [[ ! -f "${PROJECT_DIR}/${LIB_NAME}" ]]; then
-    echo "ERROR: Build failed — ${LIB_NAME} not produced." >&2
     exit 1
 fi
 

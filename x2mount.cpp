@@ -413,9 +413,10 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setPropertyInt("homingProgress", "visible", 0);
 		dx->setPropertyInt("groupBox_parking", "visible", 0);
 
-		// Read height limits and meridian config from mount if connected
+		// Read live values from mount if connected
 		if(m_bLinked) {
 			bool bIgnored;
+			m_pMount->getGuideRate(m_dZWOGuideRate);
 			m_pMount->getHeightLimits(bIgnored, m_nZWOHeightLimitUpper, m_nZWOHeightLimitLower);
 			m_pMount->getMeridianConfig(m_nZWOMeridianTrack, m_nZWOMeridianSlew);
 		}
@@ -424,6 +425,8 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setPropertyInt("spinBox_zwoHeightLimitLower", "value", m_nZWOHeightLimitLower);
 		dx->setPropertyInt("spinBox_zwoMeridianTrack", "value", m_nZWOMeridianTrack);
 		dx->setPropertyInt("spinBox_zwoMeridianSlew", "value", m_nZWOMeridianSlew);
+		// Set Park button only useful when connected (mount must be at the desired park position)
+		dx->setEnabled("pushButton_zwoSetPark", m_bLinked);
 	} else {
 		// Hide ZWO-specific controls for standard OnStep mounts
 		dx->setPropertyInt("label_zwoGuideRate", "visible", 0);
@@ -473,7 +476,6 @@ int X2Mount::execModalSettingsDialog(void)
 
 		if (m_bIsZWOMount) {
 			dx->propertyDouble("spinBox_zwoGuideRate", "value", m_dZWOGuideRate);
-			m_pMount->setZWOGuideRate(m_dZWOGuideRate);
 			nErr |= m_pIniUtil->writeDouble(PARENT_KEY, CHILD_KEY_ZWO_GUIDE_RATE, m_dZWOGuideRate);
 
 			m_bZWOHeightLimitsEnabled = (dx->isChecked("checkBox_zwoHeightLimitsEnabled") == 1);
@@ -483,6 +485,7 @@ int X2Mount::execModalSettingsDialog(void)
 			dx->propertyInt("spinBox_zwoMeridianSlew", "value", m_nZWOMeridianSlew);
 
 			if(m_bLinked) {
+				m_pMount->setGuideRate(m_dZWOGuideRate);
 				m_pMount->setHeightLimits(m_bZWOHeightLimitsEnabled, m_nZWOHeightLimitUpper, m_nZWOHeightLimitLower);
 				m_pMount->setMeridianConfig(m_nZWOMeridianTrack, m_nZWOMeridianSlew);
 			}
@@ -648,6 +651,14 @@ void X2Mount::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 		m_bSettingPark = false;
 		uiex->setText("parkingProgress","New parking position set");
 	}
+	// ZWO: set current position as park position in mount
+	if (!strcmp(pszEvent, "on_pushButton_zwoSetPark_clicked")) {
+		nErr = m_pMount->setCurentPosAsPark();
+		if(nErr)
+			uiex->messageBox("ZWO Park", "Error setting park position.");
+		else
+			uiex->messageBox("ZWO Park", "Park position set to current mount position.");
+	}
 	return;
 }
 
@@ -705,6 +716,9 @@ int X2Mount::establishLink(void)
 	}
 	else {
 		m_bLinked = true;
+		// Sync guide rate from mount (ZWO reads actual hardware value during Connect)
+		if(m_bIsZWOMount)
+			m_dZWOGuideRate = m_pMount->getZWOGuideRate();
 	}
 	return nErr;
 }

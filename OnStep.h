@@ -76,6 +76,8 @@ public:
 
 	void setZWOGuideRate(double dRate) { m_dZWOGuideRate = dRate; }
 	double getZWOGuideRate() { return m_dZWOGuideRate; }
+	virtual int getGuideRate(double &dRate) { dRate = m_dZWOGuideRate; return PLUGIN_OK; }
+	virtual int setGuideRate(double dRate) { m_dZWOGuideRate = dRate; return PLUGIN_OK; }
 
 	int startSlewTo(double dRa, double dDec);
 	int isSlewToComplete(bool &bComplete);

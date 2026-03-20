@@ -60,4 +60,40 @@ The string names used in `queryAbstraction` match the class names exactly.
 ## ZWO Protocol Implementation Notes
 
 ### DirectGuideInterface
-The `DirectGuideInterface` is not implementable for the ZWO protocol. ZWO only supports time/rate-based guide pulses (`:Mgdnnnn#`), not instantaneous high-resolution coordinate injections. Use the standard `PulseGuideInterface2` instead.
+
+`DirectGuideInterface` is fully implemented for ZWO. The interface delivers guide offsets as arcsecond deltas; the mount executes time-based pulses. The conversion happens in `X2Mount::directGuideMoveTelescope()`.
+
+#### Interface contract
+
+| Method | TSX contract | Our implementation |
+|--------|-------------|-------------------|
+| `directGuideMoveTelescope(dRA, dDec)` | Apply `dRA`/`dDec` arcsecond offsets to the mount | Converts to pulse durations and sends `:Mgd{dir}{nnnn}#` |
+| `directGuideAbort()` | Abort any in-progress guide move | Calls `Abort()` → `:Q#` |
+| `directGuideAsynchronous()` | Return true if moves complete asynchronously | Returns `true` — ZWO pulses are fire-and-forget |
+| `setDirectGuideAsynchronous(bool)` | Allow TSX to toggle async mode | No-op; always async |
+
+#### Arcsecond-to-millisecond conversion
+
+TSX passes `dRA` and `dDec` as signed arcseconds. The mount expects a pulse duration in milliseconds via `:Mgd{dir}{nnnn}#`. Conversion uses the configured guide rate (`m_dZWOGuideRate`, a fraction of sidereal):
+
+```
+sidereal_rate  = 15.04106858 arcsec/sec
+guide_rate     = m_dZWOGuideRate × sidereal_rate   (arcsec/sec)
+duration_ms    = |offset_arcsec| / guide_rate × 1000
+```
+
+Sign → direction mapping: RA+ = `e`, RA− = `w`, Dec+ = `n`, Dec− = `s`. Zero-duration pulses are skipped. RA and Dec are sent as separate sequential commands.
+
+#### Wire format
+
+`OnStep::startPulseGuide(dir, ms)` formats the command:
+
+```
+:Mgd{dir}{nnnn}#
+```
+
+where `{dir}` is one of `n`/`s`/`e`/`w` and `{nnnn}` is a zero-padded 4-digit millisecond duration (e.g. `:Mgde0250#` for a 250 ms east pulse). The mount sends no response — `sendCommand` is called with `SHORT_RESPONSE, 0`.
+
+#### Guide rate configuration
+
+`m_dZWOGuideRate` is persisted in INI under `ZWOGuideRate` (default `0.5`, i.e. 50% sidereal ≈ 7.52 arcsec/sec) and exposed as a spinbox in the ZWO settings dialog. On connect, `ZWOMount::getGuideRate()` sends `:Ggr#` to read the mount's actual guide rate and overwrites both the OnStep member and `X2Mount::m_dZWOGuideRate`, so the math always reflects hardware reality. When the settings dialog is saved, `ZWOMount::setGuideRate()` sends `:Rg{rate}#` to keep the mount register in sync with any value the user changed in the spinbox.
