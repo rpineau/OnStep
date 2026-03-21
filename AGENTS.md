@@ -27,39 +27,53 @@ including branches and tags.** Do not assume permission to push—always verify 
 
 ## Build Commands
 
-The Makefile auto-detects the platform (`uname -s`) and sets the correct flags.
+### macOS
+
+Build with Xcode from the command line:
+
+```bash
+xcodebuild clean && xcodebuild
+```
+
+Output: `build/Release/libOnStep.dylib`
+
+The Xcode project requires the X2 SDK headers at `../X2-Examples/licensedinterfaces/` relative
+to the project root (i.e. a sibling `X2-Examples` directory). `HEADER_SEARCH_PATHS` is set to
+`$(SRCROOT)/../X2-Examples/licensedinterfaces` so the SDK's own relative includes resolve correctly.
+
+### Linux
 
 ```bash
 make clean    # Remove build artifacts
-make          # Produces libOnStep.dylib (macOS) or libOnStep.so (Linux)
+make          # Produces libOnStep.so
 ```
 
-| Platform | Output | OS flag | Link flags |
-|----------|--------|---------|------------|
-| macOS    | `libOnStep.dylib` | `-DSB_MACOSX_BUILD` | `-dynamiclib -lstdc++` |
-| Linux    | `libOnStep.so`    | `-DSB_LINUX_BUILD`  | `-shared -lstdc++`     |
+| Output | OS flag | Link flags |
+|--------|---------|------------|
+| `libOnStep.so` | `-DSB_LINUX_BUILD` | `-shared -lstdc++` |
 
-The Makefile also runs `uic OnStep.ui` validation before compiling if `uic` is on `PATH`
-or at the standard Homebrew path (`/usr/local/opt/qt@5/bin/uic` or `/opt/homebrew/opt/qt@5/bin/uic`).
+The Makefile also validates `OnStep.ui` with `uic` before compiling if `uic` is on `PATH`.
 
-### Windows build
+### Windows
 
 Use Visual Studio solution in `libOnStep/` — produces `libOnStep.dll` (32 & 64-bit).
 
-### Installation (Linux and macOS)
+### macOS packaging and installation
 
-Build and install are separate steps. The installer only copies pre-built files — it
-does **not** build anything. If the binary is missing it will fail immediately.
+After `xcodebuild`, create the installer package and install it:
 
 ```bash
-make                                # build only
-make install                        # build (if needed) then install
-./installer/install.sh              # install only (binary must already exist)
-./installer/install.sh --uninstall  # remove all installed files
+cd installer
+./build.sh                                        # creates OnStep_X2.pkg
+sudo installer -pkg ./OnStep_X2.pkg -target /     # installs via macOS pkg mechanism
 ```
 
-The installer is designed to be **packaged with compiled binaries** for distribution.
-End users run `install.sh` directly; developers use `make install`.
+`build.sh` copies the compiled dylib and resources into a staging directory, then calls
+`pkgbuild` to produce `OnStep_X2.pkg`. The package's `postinstall` script locates TheSkyX
+and copies all files into the correct plugin directory.
+
+For signed/notarized distribution, use `build_notarize.sh` instead (requires `app_id_signature`,
+`installer_signature`, and `AC_PROFILE` environment variables).
 
 **Installed files** (all copied to the mount plugin directory):
 - `libOnStep.dylib` / `libOnStep.so` — the driver shared library
@@ -67,10 +81,14 @@ End users run `install.sh` directly; developers use `make install`.
 - `OnStep.png`, `ZWO.png` — logos
 - `mountlist OnStep.txt` — mount name list (copied to TheSkyX Miscellaneous Files)
 
-**macOS:** installs to `/Applications/TheSkyX Professional Edition.app/Contents/PlugIns/MountPlugIns/`.
+### Linux installation
 
-**Linux:** installs to `~/TheSkyX/Resources/Common/PlugIns64/MountPlugIns/` (auto-detects ARM variants).
-Override the TheSkyX home directory by setting `TSX_HOME` before running the script.
+```bash
+./installer/install.sh    # copies libOnStep.so and resources into TheSkyX plugin directory
+```
+
+The script auto-detects the TheSkyX install path and the correct plugin subdirectory
+(`PlugIns64`, `PlugInsARM64`, `PlugInsARM32`, or `PlugIns`).
 
 ## Testing
 

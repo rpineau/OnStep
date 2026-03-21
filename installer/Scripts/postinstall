@@ -44,6 +44,9 @@ rm -f "$PLUGINS_DIR/MountPlugIns/OnStep.png"
 cp -f "/tmp/OnStep_X2/OnStep.png" "$PLUGINS_DIR/MountPlugIns/"
 if [ "$?" -ne "0" ]; then exit 1; fi
 
+rm -f "$PLUGINS_DIR/MountPlugIns/ZWO.png"
+cp -f "/tmp/OnStep_X2/ZWO.png" "$PLUGINS_DIR/MountPlugIns/"
+if [ "$?" -ne "0" ]; then exit 1; fi
 
 rm -f "$PLUGINS_DIR/MountPlugIns/libOnStep.dylib"
 cp -f "/tmp/OnStep_X2/libOnStep.dylib" "$PLUGINS_DIR/MountPlugIns/"
@@ -54,6 +57,7 @@ if [ ! -z "$app_owner" ]; then
 	chown $app_owner "$TheSkyX_Path/Resources/Common/Miscellaneous Files/mountlist OnStep.txt"
 	chown $app_owner "$PLUGINS_DIR/MountPlugIns/OnStep.ui"
 	chown $app_owner "$PLUGINS_DIR/MountPlugIns/OnStep.png"
+	chown $app_owner "$PLUGINS_DIR/MountPlugIns/ZWO.png"
 	chown $app_owner "$PLUGINS_DIR/MountPlugIns/libOnStep.dylib"
 fi
 

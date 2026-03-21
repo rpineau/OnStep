@@ -14,6 +14,8 @@
 		93B6BC631E62127D0050E48B /* OnStep.h in Headers */ = {isa = PBXBuildFile; fileRef = 93B6BC5D1E62127D0050E48B /* OnStep.h */; };
 		93B6BC641E62127D0050E48B /* x2mount.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 93B6BC5E1E62127D0050E48B /* x2mount.cpp */; };
 		93B6BC651E62127D0050E48B /* x2mount.h in Headers */ = {isa = PBXBuildFile; fileRef = 93B6BC5F1E62127D0050E48B /* x2mount.h */; };
+		AABB00030000000000000003 /* ZWOMount.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AABB00010000000000000001 /* ZWOMount.cpp */; };
+		AABB00040000000000000004 /* ZWOMount.h in Headers */ = {isa = PBXBuildFile; fileRef = AABB00020000000000000002 /* ZWOMount.h */; };
 		93B6BC681E6223EE0050E48B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B6BC671E6223EE0050E48B /* IOKit.framework */; };
 		93B6BC6A1E6223F60050E48B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B6BC691E6223F60050E48B /* CoreFoundation.framework */; };
 /* End PBXBuildFile section */
@@ -27,6 +29,8 @@
 		93B6BC5D1E62127D0050E48B /* OnStep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OnStep.h; sourceTree = "<group>"; };
 		93B6BC5E1E62127D0050E48B /* x2mount.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = x2mount.cpp; sourceTree = "<group>"; };
 		93B6BC5F1E62127D0050E48B /* x2mount.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = x2mount.h; sourceTree = "<group>"; };
+		AABB00010000000000000001 /* ZWOMount.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ZWOMount.cpp; sourceTree = "<group>"; };
+		AABB00020000000000000002 /* ZWOMount.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZWOMount.h; sourceTree = "<group>"; };
 		93B6BC671E6223EE0050E48B /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		93B6BC691E6223F60050E48B /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -69,6 +73,8 @@
 				93B6BC5B1E62127D0050E48B /* main.h */,
 				93B6BC5C1E62127D0050E48B /* OnStep.cpp */,
 				93B6BC5D1E62127D0050E48B /* OnStep.h */,
+				AABB00010000000000000001 /* ZWOMount.cpp */,
+				AABB00020000000000000002 /* ZWOMount.h */,
 				93B6BC5E1E62127D0050E48B /* x2mount.cpp */,
 				93B6BC5F1E62127D0050E48B /* x2mount.h */,
 			);
@@ -95,6 +101,7 @@
 				93B6BC651E62127D0050E48B /* x2mount.h in Headers */,
 				93AE6FB12002B7BC00748C07 /* StopWatch.h in Headers */,
 				93B6BC631E62127D0050E48B /* OnStep.h in Headers */,
+				AABB00040000000000000004 /* ZWOMount.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -160,6 +167,7 @@
 			files = (
 				93B6BC641E62127D0050E48B /* x2mount.cpp in Sources */,
 				93B6BC621E62127D0050E48B /* OnStep.cpp in Sources */,
+				AABB00030000000000000003 /* ZWOMount.cpp in Sources */,
 				93B6BC601E62127D0050E48B /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -296,7 +304,7 @@
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = SB_MAC_BUILD;
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/\"",
-					"\"$(SRCROOT)/../..\"",
+					"\"$(SRCROOT)/../X2-Examples/licensedinterfaces\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -314,7 +322,7 @@
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = SB_MAC_BUILD;
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/\"",
-					"\"$(SRCROOT)/../..\"",
+					"\"$(SRCROOT)/../X2-Examples/licensedinterfaces\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";

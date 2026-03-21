@@ -10,6 +10,7 @@ fi
 mkdir -p ROOT/tmp/OnStep_X2/
 cp "../OnStep.ui" ROOT/tmp/OnStep_X2/
 cp "../OnStep.png" ROOT/tmp/OnStep_X2/
+cp "../ZWO.png" ROOT/tmp/OnStep_X2/
 cp "../mountlist OnStep.txt" ROOT/tmp/OnStep_X2/
 cp "../build/Release/libOnStep.dylib" ROOT/tmp/OnStep_X2/
 
