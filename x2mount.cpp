@@ -23,6 +23,7 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_bSynced = false;
 	m_bParked = false;
 	m_bLinked = false;
+	m_bFindHomeInitiated = false;
 	m_bSyncOnConnect = false;
 	m_bStopTrackingOnDisconnect = false;
 	m_nDebugLevel = 0;
@@ -104,6 +105,7 @@ X2Mount::~X2Mount()
 
 int X2Mount::queryAbstraction(const char* pszName, void** ppVal)
 {
+	m_pMount->log("[queryAbstraction] queried for: " + std::string(pszName));
 	*ppVal = NULL;
 
 	if (!strcmp(pszName, SyncMountInterface_Name))
@@ -136,8 +138,10 @@ int X2Mount::queryAbstraction(const char* pszName, void** ppVal)
 		*ppVal = dynamic_cast<DriverSlewsToParkPositionInterface*>(this);
 	else if (!strcmp(pszName, "DirectGuideInterface"))
 		*ppVal = dynamic_cast<DirectGuideInterface*>(this);
-	else if (!strcmp(pszName, "FindHomeInterface"))
-		*ppVal = dynamic_cast<FindHomeInterface*>(this);
+	else if (!strcmp(pszName, "FindHomeInterface") && m_bIsZWOMount)
+		*ppVal = static_cast<FindHomeInterface*>(this);
+	else if (!strcmp(pszName, "MotorStatusInterface") && m_bIsZWOMount)
+		*ppVal = static_cast<MotorStatusInterface*>(this);
 
 	return SB_OK;
 }
@@ -271,12 +275,17 @@ int X2Mount::setDirectGuideAsynchronous(bool /* bAsync */)
 int X2Mount::startFindHome()
 {
 	int nErr = SB_OK;
+	m_pMount->log("[startFindHome] Called. m_bLinked=" + std::string(m_bLinked ? "Yes" : "No"));
 	if(!m_bLinked)
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
+	m_bFindHomeInitiated = true;
+	m_pMount->log("[startFindHome] m_bFindHomeInitiated set to true");
 	nErr = m_pMount->homeMount();
+	m_pMount->log("[startFindHome] homeMount returned nErr=" + std::to_string(nErr));
 	if(nErr) {
+		m_bFindHomeInitiated = false;
 		return ERR_CMDFAILED;
 	}
 	return nErr;
@@ -290,12 +299,62 @@ int X2Mount::isCompleteFindHome(bool& bComplete) const
 
 	X2Mount* pMe = (X2Mount*)this;
 	X2MutexLocker ml(pMe->GetMutex());
+
+	// TSX calls this both from findHomeLoop (after startFindHome) and from background
+	// polls / slot_SC_TELE_CONNECT (without a prior startFindHome) to determine whether
+	// the mount is currently at the home position.  In both cases we should return the
+	// real homed state.  When no active homing is in progress we return the cached value
+	// so we don't send a serial command on every poll.
+	if(!pMe->m_bFindHomeInitiated) {
+		bComplete = pMe->m_pMount->hasCachedHomedState();
+		pMe->m_pMount->log("[isCompleteFindHome] no active homing — bComplete=" + std::string(bComplete ? "Yes" : "No"));
+		return SB_OK;
+	}
+
 	nErr = pMe->m_pMount->isHomingDone(bComplete);
+	pMe->m_pMount->log("[isCompleteFindHome] bComplete=" + std::string(bComplete ? "Yes" : "No") + " nErr=" + std::to_string(nErr));
 	return nErr;
 }
 
 int X2Mount::endFindHome()
 {
+	m_pMount->log("[endFindHome] Called. m_bFindHomeInitiated was=" + std::string(m_bFindHomeInitiated ? "Yes" : "No"));
+	m_bFindHomeInitiated = false;
+	return SB_OK;
+}
+
+#pragma mark - MotorStatusInterface
+
+int X2Mount::motorStatus(unsigned short& u1, unsigned short& u2)
+{
+	// poll1HomeAndJoysticking (0x634c40) checks bit 0x1000 in BOTH u1 AND u2.
+	// If either bit is clear → mount state = 7 (NOT_HOMED) → ERR_MOUNTNOTHOMED on slew.
+	// All known call sites pass valid stack addresses for x2, so writing u2 is safe here.
+	// (The "do not write u2" restriction only applies to motorStatus2 in updateHomeStatus.)
+	u1 = 0;
+	u2 = 0;
+	if(m_bLinked && m_pMount->hasCachedHomedState()) {
+		u1 = 0x1000;
+		u2 = 0x1000;
+	}
+	m_pMount->log("[motorStatus] u1=" + std::to_string(u1));
+	return SB_OK;
+}
+
+int X2Mount::motorStatus2(unsigned short& u1, unsigned short& u2)
+{
+	// TSX's updateHomeStatus() calls this and treats u1 != 0 as "Mount is homed." (green).
+	// findHomeLoop also calls this every 100ms: u1/u2 == 0xfa2 means motor position error.
+	// Must NOT issue serial commands — called at ~10Hz. Use cached state only.
+	//
+	// Do NOT write to u2 — TSX passes only one output arg (x1=sp+63). At the call site,
+	// x2 holds the motorStatus2 thunk address, not a second output pointer. Writing u2
+	// would corrupt the thunk's machine code (sub x0,x0,#0xa0 → sub x0,x0,#0x20) via COW.
+	u1 = 0;
+	if(m_bLinked && m_pMount->hasCachedHomedState())
+		u1 = 1;
+	if(m_nDebugLevel >= 3)
+		m_pMount->log("[motorStatus2] u1=" + std::to_string(u1));
 	return SB_OK;
 }
 
@@ -705,6 +764,7 @@ int X2Mount::establishLink(void)
 	int nErr;
 	std::string sPortName;
 
+	m_pMount->log("[establishLink] Called");
 	X2MutexLocker ml(GetMutex());
 
 	// get serial port device name
@@ -720,6 +780,7 @@ int X2Mount::establishLink(void)
 		if(m_bIsZWOMount)
 			m_dZWOGuideRate = m_pMount->getZWOGuideRate();
 	}
+	m_pMount->log("[establishLink] m_bLinked=" + std::string(m_bLinked ? "Yes" : "No") + " nErr=" + std::to_string(nErr));
 	return nErr;
 }
 
@@ -727,10 +788,12 @@ int X2Mount::terminateLink(void)
 {
 	int nErr = SB_OK;
 
+	m_pMount->log("[terminateLink] Called");
 	X2MutexLocker ml(GetMutex());
 
 	nErr = m_pMount->Disconnect();
 	m_bLinked = false;
+	m_pMount->log("[terminateLink] m_bLinked -> false");
 
 	return nErr;
 }
@@ -970,6 +1033,7 @@ bool X2Mount::isParked(void)
 	if(nErr) {
 		return false;
 	}
+	m_pMount->log("[isParked] m_bParked=" + std::string(m_bParked ? "Yes" : "No"));
 	return m_bParked;
 }
 
@@ -1050,6 +1114,7 @@ int X2Mount::isCompleteUnpark(bool& bComplete) const
 	else
 		pMe->m_bParked = true;
 
+	pMe->m_pMount->log("[isCompleteUnpark] bComplete=" + std::string(bComplete ? "Yes" : "No") + " m_bParked=" + std::string(pMe->m_bParked ? "Yes" : "No"));
 	return nErr;
 }
 

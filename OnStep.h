@@ -53,6 +53,9 @@ public:
 	int Disconnect();
 	void Reconnect(int nNewPortSpeed);
 	bool isConnected() const { return m_bIsConnected; }
+	// Cheap cached accessor — no serial I/O. Used by X2Mount::motorStatus2() to
+	// report homed state to TSX without issuing a :GU# command on every poll.
+	bool hasCachedHomedState() const { return m_bHasBeenHomed; }
 	
 	void setPortSpeed(int nPortSpeed);
 
@@ -111,8 +114,8 @@ public:
 	int syncTime();
 	int syncDate();
 
-	int homeMount();
-	int isHomingDone(bool &bIsHomed);
+	virtual int homeMount();
+	virtual int isHomingDone(bool &bIsHomed);
 
 	virtual int getDeviceName(std::string &sName) { sName = ""; return PLUGIN_OK; }
 

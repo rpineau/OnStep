@@ -152,23 +152,7 @@ We implement every interface that any of the comparison plugins implement, plus 
 | Disconnect/reconnect | ❌ Untested | |
 | Settings dialog | ❌ Untested | ZWO dialog shows: mount settings, ZWO limits, debug. Time/location and park sections hidden. |
 
-## Undocumented FindHomeInterface ✅ Implemented
-
-This interface enables the "Startup" -> "Find Home" menu option in TSX. If your plugin implements this, TSX queries it upon connection. **Now implemented in this plugin.**
-
-```cpp
-class FindHomeInterface {
-public:
-    virtual ~FindHomeInterface() {}
-    virtual int startFindHome() = 0;
-    virtual int isCompleteFindHome(bool& bComplete) const = 0;
-    virtual int endFindHome() = 0;
-};
-```
-
-TSX expects `startSlewTo` to return `ERR_MOUNTNOTHOMED` (231) if the mount needs homing but hasn't done it yet.
-
-### TSX "Set Park Position" / "Clear Park Position" — No Driver Interface
+## TSX "Set Park Position" / "Clear Park Position" — No Driver Interface
 
 Investigated via string search of `TheSkyX` binary, all licensed interface headers, and comparison plugin `.dylib` files. **Conclusion: there is no `SetParkPositionInterface` or `ClearParkPositionInterface`.** TSX handles these menu actions internally:
 
@@ -180,6 +164,33 @@ For standard OnStep, `startPark(dAz, dAlt)` → `gotoParkPos()` → `:MA#` (AltA
 
 **ZWO workaround**: Use the "Set Current Position as Park" button in the settings dialog (ZWO Advanced section). Move the mount to the desired park position, then open settings and click the button — this sends `:Sp01#` to store that position in the mount. Subsequent `:hP#` park commands will return to that position.
 
-### ZWO Protocol Implementation Notes
+---
 
-The `FindHomeInterface` is fully implementable for the ZWO protocol. Using the `:hC#` command stops the mount at the zero position. You can check the state with `:GU#` (returns `H` in the bitmask if at home position) or via Park error code 5 (`PARK_NOT_GO_HOME`).
+## Strategic TODOs
+
+### TODO-1: Slew Rate Setting Not Honored
+
+**Status:** Not started
+
+**Symptom:** The slew rate configured in the driver's setup/config UI does not appear to take
+effect. The mount slews at a fixed or default rate regardless of the setting.
+
+**Investigation starting points:**
+- Ask user to provide you with the ZWO protocol spec PDF. Read the spec and confirm that our commands are correct.
+- Find where the slew rate is stored in `IniUtil` (search `pIniUtil->write` calls in `x2mount.cpp`)
+- Find where it is sent to the mount (look for `:RS#` or `:R<n>#` OnStep serial commands)
+- Verify the value is read back correctly at connect time and applied
+- Check whether TSX calls a rate-setting method at slew time vs. our plugin applying it proactively
+
+### TODO-2: Internal State Storage Audit (Homed/Parked/etc.)
+
+**Status:** Not started
+
+**Goal:** Review all boolean/state fields tracking homing, parking, slewing, and alignment in
+`OnStep.cpp`, `ZWOMount.cpp`, and `x2mount.cpp`. Ensure:
+- No redundant or duplicate state (e.g., `m_bIsAtHome` vs `m_bHasBeenHomed` vs `hasCachedHomedState()`)
+- State is updated atomically relative to serial I/O (no TOCTOU races on the background thread)
+- ZWO overrides don't silently diverge from base class state in ways that cause future bugs
+- Parking state is correctly initialized at connect and survives disconnect/reconnect
+
+**Files to review:** `OnStep.h`, `OnStep.cpp`, `ZWOMount.h`, `ZWOMount.cpp`, `x2mount.h`, `x2mount.cpp`

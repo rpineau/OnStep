@@ -25,6 +25,13 @@ including branches and tags.** Do not assume permission to push—always verify 
 - TheSkyX X2 SDK: `../../licensedinterfaces/` (relative path, not in this repo)
 - `StopWatch.h` — Timer utility (third-party, BSD license, do not modify)
 
+## AI Code Change Policy
+
+After making any code change, **always run `make clean && make` before claiming the change is complete.** The build must pass with no new errors. Warnings are acceptable only if they existed before your change. Do not report a fix as done until this step succeeds.
+
+### Binary Disassembly & Reverse Engineering
+**Always confirm what architecture a binary was compiled for before attempting to draw conclusions from its disassembly.** This project frequently switches between `amd64` and `arm64` targets. Making assumptions about the instruction set will lead to incorrect reverse engineering. Use `file <binary>` or `readelf -h <binary>` to verify the architecture first.
+
 ## Build Commands
 
 ### macOS
@@ -232,6 +239,38 @@ Wrap all debug output in preprocessor guards:
 - Level 3 (`PLUGIN_DEBUG >= 3`): Byte-level serial I/O.
 - Always `flush()` after writing.
 
+#### Log format requirements
+
+**Function entry** — every function must log entry at level 2, including any input arguments:
+```cpp
+m_sLogFile << "["<<getTimeStamp()<<"] [homeMount] Called. bForce=" << (bForce?"Yes":"No") << std::endl;
+```
+For void/no-arg functions: `"[methodName] Called."` is sufficient.
+
+**Return values and computed results** — log at level 2 before returning:
+```cpp
+m_sLogFile << "["<<getTimeStamp()<<"] [isHomingDone] bIsHomed=" << (bIsHomed?"Yes":"No") << std::endl;
+```
+
+**Internal state changes** — log old and new value at level 2:
+```cpp
+m_sLogFile << "["<<getTimeStamp()<<"] [homeMount] m_bHasBeenHomed: " << (m_bHasBeenHomed?"Yes":"No") << " -> No" << std::endl;
+```
+
+**Errors** — always log at level 1 with the error code:
+```cpp
+m_sLogFile << "["<<getTimeStamp()<<"] [homeMount] sendCommand error " << nErr << std::endl;
+```
+
+Summary table:
+
+| What to log               | Level | Format |
+|---------------------------|-------|--------|
+| Function entry (+ inputs) | 2     | `[fn] Called. arg=val` |
+| Return value / result     | 2     | `[fn] returnVar=val` |
+| State change              | 2     | `[fn] field: oldVal -> newVal` |
+| Error                     | 1     | `[fn] <context> error <nErr>` |
+
 ### X2 Interface Pattern
 
 All X2Mount methods that access hardware must:
@@ -268,6 +307,16 @@ INI keys defined as macros in `x2mount.h`:
 ```
 
 Read/write via `m_pIniUtil->readInt()` / `m_pIniUtil->writeInt()`.
+
+## Mount Safety Rule
+
+**Never move the mount unless the user has explicitly requested it.**
+
+- Do not home the mount automatically on connect or disconnect.
+- Do not unpark the mount automatically on connect or disconnect.
+- `Connect()` may query mount state (`:GU#`, `:Gps#`, etc.) but must not send any motion command (`:hC#`, `:hP#`, `:hR#`, `:Spu#`, `:MS#`, `:MA#`, etc.).
+- `Disconnect()` must not send motion commands — only stop tracking (`:Td#`) and close the serial port.
+- If the mount reports it is already in the desired state (e.g. already homed, already parked), log the fact and return `PLUGIN_OK` — do not re-issue the motion command.
 
 ## Common Pitfalls
 

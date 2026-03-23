@@ -26,6 +26,8 @@ public:
 	int setMeridianConfig(int nTrackPastDeg, int nSlewPastDeg) override;
 	int getGuideRate(double &dRate) override;
 	int setGuideRate(double dRate) override;
+	int homeMount() override;
+	int isHomingDone(bool &bIsHomed) override;
 };
 
 #endif // __ZWOMount__

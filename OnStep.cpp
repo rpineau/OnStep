@@ -734,8 +734,16 @@ int OnStep::isAligned(bool &bAligned)
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
 	}
+	if(m_nDebugLevel >= 3) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bHasBeenHomed=" << (m_bHasBeenHomed?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
 	// for now
 	bAligned = true;
+	if(m_nDebugLevel >= 2) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bAligned=" << (bAligned?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
 	return nErr;
 }
 
@@ -997,7 +1005,7 @@ int OnStep::startSlewTo(double dRa, double dDec)
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Mount not homed/aligned, refusing slew." << std::endl;
 		m_sLogFile.flush();
 	}
-		return ERR_COMMANDNOTSUPPORTED;
+		return ERR_MOUNTNOTHOMED;
 	}
 
 	setSlewRate(m_nGoToSlewRate);
@@ -1129,13 +1137,8 @@ int OnStep::slewTargetAltAszEpochNow()
 	m_sLogFile.flush();
 	}
 
-	// NOTE: :MA# is NOT part of the ZWO AM-series protocol (v2.1). The ZWO mount has no AltAz GOTO command.
-	// For ZWO, gotoPark() overrides this path entirely (:hP#/:hC#). If we reach here on a ZWO mount
-	// (e.g. via gotoParkPos), the command will time out and we silently continue.
 	nErr = sendCommand(":MA#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	if(nErr == COMMAND_TIMEOUT)
-		nErr = PLUGIN_OK;
-	else if(nErr) {
+	if(nErr) {
 	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Error slewing, response : " << sResp << std::endl;
 		m_sLogFile.flush();
@@ -1594,6 +1597,10 @@ int OnStep::homeMount()
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
 	}
+	if(m_nDebugLevel >= 3) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsAtHome=" << (m_bIsAtHome?"Yes":"No") << " m_bHasBeenHomed=" << (m_bHasBeenHomed?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
 	if(m_bIsAtHome) {
 	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] already homed." << std::endl;
@@ -1634,8 +1641,21 @@ int OnStep::isHomingDone(bool &bIsHomed)
 	}
 
 	bIsHomed = m_bIsAtHome;
-	if(m_bIsAtHome)
+	if(m_nDebugLevel >= 3) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsAtHome=" << (m_bIsAtHome?"Yes":"No") << " bIsHomed=" << (bIsHomed?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
+	if(m_bIsAtHome) {
 		m_bHasBeenHomed = true;
+	if(m_nDebugLevel >= 3) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bHasBeenHomed -> true" << std::endl;
+		m_sLogFile.flush();
+	}
+	}
+	if(m_nDebugLevel >= 2) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bIsHomed=" << (bIsHomed?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
 	return nErr;
 }
 
