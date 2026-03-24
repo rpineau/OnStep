@@ -37,13 +37,10 @@ X2Mount::X2Mount(const char* pszDriverSelection,
 	m_nZWOMeridianSlew = 0;
 
 	std::string sSelection(pszDriverSelection);
-	if(sSelection.find("ZWO") != std::string::npos) {
+	if(sSelection.find("ZWO") != std::string::npos)
 		m_pMount = new ZWOMount();
-		m_bIsZWOMount = true;
-	} else {
+	else
 		m_pMount = new OnStep();
-		m_bIsZWOMount = false;
-	}
 
 	m_pMount->setSerxPointer(m_pSerX);
 	m_pMount->setTSX(m_pTheSkyXForMounts);
@@ -134,13 +131,13 @@ int X2Mount::queryAbstraction(const char* pszName, void** ppVal)
 		*ppVal = GetLogger();
 	else if (!strcmp(pszName, SerialPortParams2Interface_Name))
 		*ppVal = dynamic_cast<SerialPortParams2Interface*>(this);
-	else if (!strcmp(pszName, DriverSlewsToParkPositionInterface_Name))
+	else if (!strcmp(pszName, DriverSlewsToParkPositionInterface_Name) && m_pMount->supportsDriverSlewsToParkPosition())
 		*ppVal = dynamic_cast<DriverSlewsToParkPositionInterface*>(this);
 	else if (!strcmp(pszName, "DirectGuideInterface"))
 		*ppVal = dynamic_cast<DirectGuideInterface*>(this);
-	else if (!strcmp(pszName, "FindHomeInterface") && m_bIsZWOMount)
+	else if (!strcmp(pszName, "FindHomeInterface") && m_pMount->supportsFindHome())
 		*ppVal = static_cast<FindHomeInterface*>(this);
-	else if (!strcmp(pszName, "MotorStatusInterface") && m_bIsZWOMount)
+	else if (!strcmp(pszName, "MotorStatusInterface") && m_pMount->supportsMotorStatus())
 		*ppVal = static_cast<MotorStatusInterface*>(this);
 
 	return SB_OK;
@@ -439,7 +436,7 @@ int X2Mount::execModalSettingsDialog(void)
 	dx->setEnabled("comboBox_guideRate", true);
 	dx->setCurrentIndex("comboBox_guideRate", m_GuideRateIndex);
 
-	if (m_bIsZWOMount) {
+	if (m_pMount->isZWOVariant()) {
 		// Swap logo to ZWO branding
 		dx->setPropertyString("label_logo", "X2_PhotoFileName", "ZWO.png");
 		// Populate mount status info
@@ -538,7 +535,7 @@ int X2Mount::execModalSettingsDialog(void)
 		m_GuideRateIndex =  dx->currentIndex("comboBox_guideRate");
 		m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_GUIDE_RATE, m_GuideRateIndex);
 
-		if (m_bIsZWOMount) {
+		if (m_pMount->isZWOVariant()) {
 			dx->propertyDouble("spinBox_zwoGuideRate", "value", m_dZWOGuideRate);
 			nErr |= m_pIniUtil->writeDouble(PARENT_KEY, CHILD_KEY_ZWO_GUIDE_RATE, m_dZWOGuideRate);
 
@@ -782,7 +779,7 @@ int X2Mount::establishLink(void)
 	else {
 		m_bLinked = true;
 		// Sync guide rate from mount (ZWO reads actual hardware value during Connect)
-		if(m_bIsZWOMount)
+		if(m_pMount->isZWOVariant())
 			m_dZWOGuideRate = m_pMount->getZWOGuideRate();
 	}
 	m_pMount->log("[establishLink] m_bLinked=" + std::string(m_bLinked ? "Yes" : "No") + " nErr=" + std::to_string(nErr));
@@ -1042,42 +1039,36 @@ bool X2Mount::isParked(void)
 	return m_bParked;
 }
 
-int X2Mount::startPark(const double& , const double& )
+int X2Mount::startPark(const double& /*dAz*/, const double& /*dAlt*/)
 {
-	int nErr = SB_OK;
-
 	if(!m_bLinked)
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
 
-	nErr = m_pMount->gotoPark();
-	if (nErr) {
+	m_bParked = false;
+	int nErr = m_pMount->gotoPark();
+	if(nErr)
 		nErr = ERR_CMDFAILED;
-	}
 	return nErr;
 }
 
 
 int X2Mount::isCompletePark(bool& bComplete) const
 {
-	int nErr = SB_OK;
-
 	if(!m_bLinked)
 		return ERR_NOLINK;
 
 	X2Mount* pMe = (X2Mount*)this;
-	X2MutexLocker ml(pMe ->GetMutex());
+	X2MutexLocker ml(pMe->GetMutex());
 
-	nErr =  pMe->m_pMount->isParkingComplete(bComplete);
-	if(nErr)
-		return nErr;
-
-	return nErr;
+	return pMe->m_pMount->isParkingComplete(bComplete);
 }
 
 int X2Mount::endPark(void)
 {
+	if(m_bLinked)
+		m_pMount->finalizepark();
 	return SB_OK;
 }
 

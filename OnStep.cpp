@@ -64,7 +64,6 @@ int OnStep::Connect(std::string sPort)
 			return nErr;
 		}
 	}
-	m_bSyncDone = false;
 	nErr = isHomingDone(m_bIsAtHome);
 	if(nErr) {
 		if(nErr == ERR_TXTIMEOUT)
@@ -78,6 +77,10 @@ int OnStep::Connect(std::string sPort)
 	}
 	setSlewRate(m_nGoToSlewRate);
 	// unPark();
+
+	// NOTE: ZWOMount::Connect() does NOT call this function. If you add new
+	// initialization here, check whether it also needs to be added to ZWOMount::Connect().
+
 	return nErr;
 }
 
@@ -102,7 +105,6 @@ int OnStep::Disconnect(void)
 		}
 	}
 	m_bIsConnected = false;
-	m_bSyncDone = false;
 
 	return SB_OK;
 }
@@ -712,8 +714,6 @@ int OnStep::syncTo(double dRa, double dDec)
 		if(sResp.at(0) == 'E') {
 			nErr = ERR_CMDFAILED;
 			// process error
-		} else {
-			m_bSyncDone = true;
 		}
 //	}
 //	else {

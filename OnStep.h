@@ -94,6 +94,10 @@ public:
 
 	virtual int gotoParkPos(double dAlt, double dAz);
 	virtual int gotoPark();
+	// Called by X2Mount::endPark after TSX's park slew completes.
+	// Default is a no-op — standard OnStep manages its own park state via :hP#.
+	// ZWOMount overrides to send :Sp01# + :hP# and set m_bIsParked.
+	virtual int finalizepark() { return PLUGIN_OK; }
 
 	virtual int isParkingComplete(bool &bComplete);
 	virtual int getAtPark(bool &bParked);
@@ -124,6 +128,13 @@ public:
 	virtual int getMeridianConfig(int &nTrackPastDeg, int &nSlewPastDeg) { nTrackPastDeg = 0; nSlewPastDeg = 0; return PLUGIN_OK; }
 	virtual int setMeridianConfig(int /*nTrackPastDeg*/, int /*nSlewPastDeg*/) { return PLUGIN_OK; }
 
+	// Capability queries — X2Mount uses these instead of a runtime type flag.
+	// Override in derived classes to match the hardware's actual capabilities.
+	virtual bool supportsDriverSlewsToParkPosition() const { return true; }
+	virtual bool supportsFindHome() const { return false; }
+	virtual bool supportsMotorStatus() const { return false; }
+	virtual bool isZWOVariant() const { return false; }
+
 	int IsBeyondThePole(bool &bBeyondPole);
 
 	void setStopTrackingOnDisconnect(bool bLeaveOn);
@@ -151,7 +162,6 @@ protected:
 	bool	m_bIsHoming = false;
 	bool    m_bIsAtHome = false;
 	bool    m_bHasBeenHomed = false;
-	bool    m_bParkUsesHome = false;
 	bool    m_bIsParked = false;
 	bool	m_bIsTracking = false;
 	bool	m_bIsParking = false;
@@ -169,7 +179,6 @@ protected:
 	double  m_dParkAz = 270.00;
 	double  m_dParkAlt = 0;
 
-	bool    m_bSyncDone = false;
 	int		m_nAlignementStars = 0;
 
 	std::string     m_sTime;

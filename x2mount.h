@@ -350,8 +350,13 @@ private:
 	TickCountInterface*						m_pTickCount;
 
 	OnStep *m_pMount;
-	bool m_bIsZWOMount;
 
+	// Two-layer connection state: m_bLinked (X2 adapter layer) is set by establishLink/
+	// terminateLink and controls whether X2 routes calls to the driver. m_bIsConnected
+	// (OnStep/ZWOMount layer) tracks whether the serial port is open. They diverge when
+	// the serial port drops mid-session without an explicit terminateLink: m_bIsConnected
+	// goes false on the next failed command, but m_bLinked stays true and TSX keeps
+	// routing calls. This is intentional — TSX has its own timeout/reconnect logic.
 	bool 	m_bLinked;
 
 	bool 	m_bSynced;

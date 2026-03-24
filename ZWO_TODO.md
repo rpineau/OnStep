@@ -68,11 +68,11 @@ We implement every interface that any of the comparison plugins implement, plus 
 | Check homing done | `:GU#` (H flag) | ✅ | ❌ (base) | ✅ | Pass |
 | Query homing success | `:Gh#` | ✅ | ✅ | ✅ | Returns 0 even after homing (firmware issue?) |
 | **Parking** | | | | | |
-| Park (default position) | `:hP#` | ✅ | ✅ | ✅ | Falls back to :hC# when no park pos set |
-| Park status | `:Gps#` | ✅ | ✅ | ✅ | Returns empty when no park pos — fallback works |
-| Park status (isParked) | `:Gps#` | ✅ | ✅ | ❌ | ZWO override of `getAtPark()` uses `:Gps#`; `2`=parked. Was broken: base used `:GU#` P-flag which ZWO doesn't set. |
-| Set custom park position | `:Sp01#` | ✅ | ✅ | ❌ | `setCurentPosAsPark()` callable via "Set Current Position as Park" button in `groupBox_zwoAdvanced`. TSX "Set Park Position" has no driver callback — it stores position internally and passes it via `startPark(dAz, dAlt)`, which we cannot honor (no AltAz slew on ZWO). |
-| Unpark | `:Spu#` | ✅ | ✅ | ❌ | ZWO override sends `:Spu#` instead of `:hR#` |
+| Park (goto + finalize) | `:Sp01#` `:hP#` | ✅ | ✅ | 🔄 | TSX slews mount to park position (SlewToInterface), then calls startPark → gotoPark. gotoPark sends :Sp01# (register current position as park 1) + :hP# (execute park). isParkingComplete returns true immediately (mount already there). |
+| Park status (isParkingComplete) | `:Gps#` | ⚠️ | ✅ | 🔄 | `:Gps#` always returns empty `#` on this firmware. isParkingComplete() returns true immediately instead of polling. |
+| Park status (isParked/getAtPark) | `:Gps#` → `m_bZWOParked` | ✅ | ✅ | 🔄 | `:Gps#` unreliable (always empty). getAtPark() falls back to m_bZWOParked, set by finalizepark()/endPark and cleared by gotoPark()/unPark(). getStatus()/:GU# never sets 'P' on ZWO. |
+| Set custom park position | `:Sp01#` | ✅ | ✅ | 🔄 | Auto-sent in gotoPark() before :hP#. Also callable via "Set Current Position as Park" button. |
+| Unpark | `:Spu#` | ✅ | ✅ | ❌ | ZWO override sends `:Spu#` instead of `:hR#`. Clears m_bZWOParked. |
 | **Meridian Limits** | | | | | |
 | Get limits | `:GTa#` | ✅ | ✅ | ✅ | Pass (returns 0 — mount default) |
 | Set meridian behavior | `:STannsnn#` | ✅ | ✅ | ❌ | Via settings dialog; applied on OK. Was broken: sent `:STA…` (uppercase A) — fixed to `:STa…`. Response format: nn=two flag bits (flip+continue-tracking), snn=signed limit angle. |
@@ -102,19 +102,6 @@ We implement every interface that any of the comparison plugins implement, plus 
 
 ## Priority TODO Items
 
-### Must Fix
-- [x] **Unpark**: ZWO override sends `:Spu#` instead of base `:hR#`. ✅
-- [x] **Set custom park position**: `:Sp01#` callable via "Set Current Position as Park" button in ZWO Advanced settings group. TSX's "Set Park Position" menu has no driver callback; our button is the ZWO equivalent. ✅
-
-### Should Implement
-- [x] **Native pulse guide** (`:Mgdnnnn#`): Implemented via `DirectGuideInterface` — more precise than OLM-based guiding. ✅
-- [x] **Guide rate get/set** (`:Rg0.nn#` / `:Ggr#`): Exposed in settings dialog, persisted via INI (`m_dZWOGuideRate`). ✅
-- [x] **Dynamic UI Hiding**: ZWO shows only relevant controls; standard OnStep shows only its controls. For ZWO: time/location, home, and park sections hidden (TSX owns these via interfaces). For OnStep: ZWO guide rate and advanced limits hidden. ✅
-- [x] **Get tracking status** (`:GAT#`): `ZWOMount::isTrackingOn()` override uses `:GAT#` (response `0`=off, non-zero=on) instead of `:GU#` bitmask. ✅
-- [x] **isParked() fix**: `ZWOMount::getAtPark()` override uses `:Gps#` instead of `:GU#` P-flag, which ZWO firmware doesn't set. ✅ Both `getAtPark` and `isTrackingOn` required `virtual` added to base class. ✅
-- [x] **Height limits** (`:SLE#`/`:SLD#`/`:SLHnn#`/`:SLLnn#`/`:GLH#`/`:GLL#`): Exposed in settings dialog (`groupBox_zwoAdvanced`), ZWO-only. ✅
-- [x] **Meridian behavior config** (`:STannsnn#`): Exposed in settings dialog (track + slew past meridian), applied on OK. ✅
-
 ### Nice to Have
 - [ ] **Daylight saving** (`:GH#`/`:SHn#`): The SMTI compound command handles timezone; DST might need explicit handling.
 - [ ] **Clear multi-star calibration** (`:NSC#`): Add button to settings dialog.
@@ -133,10 +120,10 @@ We implement every interface that any of the comparison plugins implement, plus 
 | Site data sync (SMGE+SMTI) | ✅ Pass | Always runs on connect; 3-digit longitude padding required |
 | Basic slew (GOTO) | ✅ Pass | :MS# with e-prefix error handling |
 | Slew complete detection | ✅ Pass | Via :GU# status polling |
-| Park (home fallback) | ✅ Pass | Falls back to :hC# when no park pos |
+| Park (goto + finalize) | 🔄 Testing | gotoPark sends :Sp01# + :hP#; isParkingComplete returns true immediately; finalizepark sets m_bZWOParked |
 | Start/stop tracking | ✅ Pass | :Te# / :Td# |
 | Tracking status readback | ❌ Untested | Implemented via :GAT# override; needs on-mount confirmation of response format |
-| Park / isParked() | ❌ Untested | getAtPark() now uses :Gps# override; Unpark button should enable after parking |
+| isParked() after park | 🔄 Testing | getAtPark() falls back to m_bZWOParked (set by finalizepark); :Gps# always returns empty on this firmware |
 | Meridian limits | ✅ Pass | :GTa# returns mount config (0° default) |
 | Flip hour angle | ✅ Pass | Derived from :GTa# |
 | Beyond the pole | ✅ Pass | :Gm# returns E/W/N |
@@ -154,83 +141,149 @@ We implement every interface that any of the comparison plugins implement, plus 
 
 ## TSX "Set Park Position" / "Clear Park Position" — No Driver Interface
 
-Investigated via string search of `TheSkyX` binary, all licensed interface headers, and comparison plugin `.dylib` files. **Conclusion: there is no `SetParkPositionInterface` or `ClearParkPositionInterface`.** TSX handles these menu actions internally:
+TSX has no `SetParkPositionInterface` — it stores park coordinates internally and passes them to `startPark(dAz, dAlt)`. Since ZWO has no AltAz GOTO (`:MA#` doesn't exist), our `gotoPark()` override sends `:hP#` instead, ignoring TSX's coordinates.
 
-- **"Set Park Position"**: TSX records the current telescope position in its own state (`m_dSoftwareParkAlt` / `m_dSoftwareParkAz`). No driver callback.
-- **"Clear Park Position"**: Clears TSX's internally stored park coordinates. No driver callback.
-- **"Park"**: TSX calls `startPark(dAz, dAlt)` with the stored coordinates. Since we implement `DriverSlewsToParkPositionInterface`, TSX expects us to slew there.
+**ZWO workaround**: Use the "Set Current Position as Park" button in the settings dialog (ZWO Advanced section). This sends `:Sp01#` to store the current position in the mount. Subsequent `:hP#` park commands return there.
 
-For standard OnStep, `startPark(dAz, dAlt)` → `gotoParkPos()` → `:MA#` (AltAz slew). For ZWO, `:MA#` doesn't exist. Our ZWO `gotoPark()` override sends `:hP#` (go to mount's stored park position), ignoring the TSX-provided coordinates.
+---
 
-**ZWO workaround**: Use the "Set Current Position as Park" button in the settings dialog (ZWO Advanced section). Move the mount to the desired park position, then open settings and click the button — this sends `:Sp01#` to store that position in the mount. Subsequent `:hP#` park commands will return to that position.
+## Known Limitations
+
+### TSX "Set Park Position" / "Clear Park Position" Menu Items
+
+**Standard OnStep:** disabled (driver returns `DriverSlewsToParkPositionInterface`; intentional, behavior unchanged).
+
+**ZWO:** enabled. TSX converts its stored AltAz park position to RA/Dec using its own `HzToEq` and calls `startSlewTo`. When the slew completes, TSX calls `startPark` → `isCompletePark` → `endPark` (ParkInterface). `gotoPark()` sends `:Sp01#` + `:hP#` to finalize the park state in the firmware. See TODO-4.
+
+**Height limit constraint:** The park position altitude must be above the firmware's lower height limit (`:SLL#`). The firmware rejects any slew to a position below this limit with error `e6`. Set the park position somewhere in the reachable operating zone.
 
 ---
 
 ## Strategic TODOs
 
-### TODO-1: Slew Rate Setting Not Honored
-
-**Status:** ✅ Resolved (confirmed via ZWO protocol spec v2.1)
-
-**Root cause (two bugs):**
-
-**Bug A — Wrong rate names for indices 6–9.**
-The base class labels `{"0.25x","0.5x","1x (Guide)","2x","4x (Centering)","8x (Move)","24x (Slew)","48x","Half-Max","Max"}` match standard OnStep firmware but not ZWO.
-ZWO spec-confirmed levels: 0.25x, 0.5x, 1x, 2x, 4x, 8x, **20x, 60x, 720x, 1440x** sidereal.
-→ **Fixed**: `ZWOMount::getRateName()` override returns ZWO-correct names.
-
-**Bug B — `:Rn#` sent before GOTO had no effect and clobbered OLM rate.**
-The ZWO spec procedure example (p.26) shows GOTO as `:Sr#` → `:Sd#` → `:MS#` — no `:Rn#`.
-The manual-move procedure is `:Rn#` → `:Mn#`/`:Me#` etc. `:Rn#` is OLM-only; ZWO GOTO
-always runs at firmware-fixed maximum speed. Sending `:Rn#` before `:MS#` silently
-changed the OLM rate mid-session for no GOTO benefit.
-→ **Fixed**: `ZWOMount::startSlewTo()` override skips `setSlewRate()`. `:Rn#` continues
-to be applied before every OLM move via `OnStep::startOpenLoopMove()`.
-
-**Design note:** For ZWO, the config UI "Slew Rate" setting now only controls OLM (manual
-move) speed. GOTO always runs at max speed. The UI label is technically mislabeled
-("Slew Rate" vs "Manual Move Rate") — consider updating the `.ui` file if it causes confusion.
-
-**Spec cross-checks (all correct):**
-- `:Rn#` response: None ✓ (we use fire-and-forget)
-- `:hP#` response: None ✓ (we use timeout=0)
-- `:Gps#` 0/1/2/3 → 2=parked ✓
-- `:Gh#` 0=never homed, 1=homed ✓ (our `m_bHasBeenHomed` fallback handles firmware quirk)
-- `:Sp01#` requires homing first (PARK_NOT_GO_HOME=5) — our UI only enables the button when connected; user must home first or the firmware returns error 5.
-
 ### TODO-2: Internal State Storage Audit (Homed/Parked/etc.)
-
-**Status:** Not started
-
-**Goal:** Review all boolean/state fields tracking homing, parking, slewing, and alignment in
-`OnStep.cpp`, `ZWOMount.cpp`, and `x2mount.cpp`. Ensure:
-- No redundant or duplicate state (e.g., `m_bIsAtHome` vs `m_bHasBeenHomed` vs `hasCachedHomedState()`)
-- State is updated atomically relative to serial I/O (no TOCTOU races on the background thread)
-- ZWO overrides don't silently diverge from base class state in ways that cause future bugs
-- Parking state is correctly initialized at connect and survives disconnect/reconnect
-
-**Files to review:** `OnStep.h`, `OnStep.cpp`, `ZWOMount.h`, `ZWOMount.cpp`, `x2mount.h`, `x2mount.cpp`
-
-### TODO-3: Eliminate `#pragma mark` Build Warnings
 
 **Status:** ✅ Resolved
 
-**Symptom:** Linux GCC emits 5 warnings on every build from `x2mount.cpp`:
+Audit found 1 dead field (`m_bSyncDone`), 1 connect-path divergence risk (`ZWOMount::Connect()` doesn't call `OnStep::Connect()`), 1 init gap (`m_bIsParked` not explicitly set in ZWO connect path), and 1 low-priority design note (`m_bLinked` vs `m_bIsConnected` two-layer split). All other state fields are correct.
+
+**Issue 1 — `m_bIsAtHome` vs `m_bHasBeenHomed` (N/A — plan was wrong).** Pre-analysis incorrectly concluded these are equivalent. In fact, `m_bIsAtHome` is reset to `false` at the start of every `getStatus()` call, then conditionally set from the `:GU#` 'H' flag — it reflects current position. `m_bHasBeenHomed` is sticky and never cleared. Both are needed. No change.
+
+**Issue 2 — `m_bSyncDone` removed.** ✅ Field removed from `OnStep.h`; assignments removed from `OnStep::Connect()`, `OnStep::Disconnect()`, `syncTo()`, and `ZWOMount::Connect()`. The only consumer (a tracking-start gate in `syncTo()`) was already commented out.
+
+**Issue 3 — `m_bIsParked` init gap fixed.** ✅ Added `getAtPark()` call at end of `ZWOMount::Connect()`. `getStatus()` via `isHomingDone()` sets `m_bIsParked` from `:GU#`, but ZWO firmware doesn't set the P flag there — `getAtPark()` re-queries via `:Gps#` and syncs `m_bIsParked` as a side-effect.
+
+**Issue 4 — `ZWOMount::Connect()` divergence documented.** ✅ Added a comment to both `OnStep::Connect()` and `ZWOMount::Connect()` explaining why ZWO doesn't call the base (base would call `setSiteData()` with `:Sg`/`:St`/`:SG` which ZWO doesn't support; ZWO uses SMGE+SMTI instead) and flagging that future base init must be replicated manually.
+
+**Issue 5 — Two-layer design documented.** ✅ Added comment block in `x2mount.h` near `m_bLinked` explaining the intentional separation from `m_bIsConnected` and the known divergence scenario on mid-session serial failure.
+
+### TODO-4: Fix ZWO Park Completion (Option B — TSX-Driven Slew)
+
+**Status:** ✅ Implemented (🔄 Testing in progress)
+
+#### What was discovered during live testing
+
+**TSX park flow (confirmed):** When `DriverSlewsToParkPositionInterface` is null, TSX uses *both* `SlewToInterface` and `ParkInterface`. It calls `startSlewTo(parkRa, parkDec)` to physically move the mount, polls `isSlewToComplete`, then calls `startPark` → `isCompletePark` → `endPark`. `startPark` is always called — `DriverSlewsToParkPositionInterface` only controls whether the driver or TSX performs the slew.
+
+**`:Gps#` is broken on this firmware:** Always returns `#` with no data (empty response). Cannot be used to detect park completion or parked state. Originally assumed to work per ZWO spec v2.1.
+
+**`:GU#` 'P' flag not set by ZWO:** The ZWO AMx firmware does not set the 'P' (parked) flag in `:GU#` responses. `getStatus()` always sees `m_bIsParked = false`. Since `getStatus()` is called on every poll cycle, any `m_bIsParked = true` set elsewhere gets immediately clobbered.
+
+**`e6` root cause:** Park position altitude was below the firmware's lower height limit. Error 6 = "Target under height limitation" (spec §Error code statement). Not a coordinate reversal.
+
+#### What was implemented
+
+**`gotoPark()`:** Sends `:Sp01#` (register current position as custom park 1) then `:hP#` (execute park). At call time, TSX has already slewed the mount to the park position, so both commands complete immediately.
+
+**`isParkingComplete()`:** Returns `bComplete=true` on first call. Polling `:Gps#` or `:GU#` both fail on ZWO firmware. Since the mount is already at the park position when `gotoPark()` is called, park is instantaneous.
+
+**`finalizepark()`:** Called by `X2Mount::endPark()` when TSX acknowledges completion. Sets `m_bZWOParked = true`.
+
+**`m_bZWOParked` (ZWOMount private):** Persistent parked flag unaffected by `getStatus()`. Set by `finalizepark()`, cleared by `gotoPark()` and `unPark()`. `getAtPark()` falls back to this when `:Gps#` returns empty.
+
+#### Protocol notes (spec v2.1)
+
+- `:Sp01#` response: `1`=success, or park error code. Error **5** = `PARK_NOT_GO_HOME` (homing not done). Error **9** = `PARK_MOVING` (mount moving). Requires equatorial mode. In practice, returns empty on this firmware — treated as "accepted."
+- `:hP#` response: **None** (fire-and-forget). Only valid in equatorial mode.
+- `:Gps#`: Spec says valid after a park command. In practice always returns empty `#` — completely unreliable on this firmware.
+- `:Spu#` (unpark): `0`=failed, `1`=success. Already implemented in `ZWOMount::unPark`.
+
+#### Known limitation — park position must respect height limit
+
+The ZWO firmware enforces a lower altitude limit (`:SLL#`) on all slews, including TSX-driven park slews. If the stored park position is below this limit, the firmware rejects the `:MS#` with **e6** = "Target under height limitation." The user must set the park position at an altitude above the configured floor. There is no workaround in the driver — this is by design in the firmware.
+
+---
+
+### TODO-3: Re-enable TSX "Set/Clear Park Position" for ZWO via AltAz→RA/Dec Conversion
+
+**Status:** ✅ Implemented (TSX-managed park enabled; see TODO-4 for completion fix)
+
+**Standard OnStep behavior: unchanged.** `DriverSlewsToParkPositionInterface` stays registered for OnStep. TSX menu stays disabled for OnStep. Nothing in this TODO touches standard OnStep behavior.
+
+**Goal:** Re-enable TSX's "Set Park Position" and "Clear Park Position" Shutdown menu items for ZWO, making TSX the owner of park position storage for ZWO the same as for any other mount.
+
+**The cheat:** ZWO has no AltAz GOTO (`:MA#` doesn't exist), but it does have RA/Dec GOTO (`:MS#`). TSX facade provides `HzToEq(dAz, dAlt, &dRa, &dDec)` — an exact AltAz-to-equatorial conversion using the site location and current LST. We convert TSX's stored park position to RA/Dec at park time and issue a standard RA/Dec GOTO. The mount physically ends up at the right AltAz; TSX is managing what position that is.
+
+#### Changes required (all in `x2mount.cpp`)
+
+**1 — Don't return `DriverSlewsToParkPositionInterface` for ZWO.**
+```cpp
+// was: unconditional
+else if (!strcmp(pszName, DriverSlewsToParkPositionInterface_Name))
+    *ppVal = dynamic_cast<DriverSlewsToParkPositionInterface*>(this);
+
+// becomes: OnStep only (same pattern as FindHomeInterface / MotorStatusInterface)
+else if (!strcmp(pszName, DriverSlewsToParkPositionInterface_Name) && !m_bIsZWOMount)
+    *ppVal = dynamic_cast<DriverSlewsToParkPositionInterface*>(this);
 ```
-x2mount.cpp:960: warning: ignoring '#pragma mark ' [-Wunknown-pragmas]
-x2mount.cpp:1013: ...
-x2mount.cpp:1023: ...
-x2mount.cpp:1129: ...
-x2mount.cpp:1185: ...
+
+**2 — `startPark(dAz, dAlt)`: use `HzToEq` + RA/Dec GOTO for ZWO.**
+TSX's `HzToEq` is available as `m_pTheSkyXForMounts->HzToEq(dAz, dAlt, dRa, dDec)`.
+```cpp
+int X2Mount::startPark(const double& dAz, const double& dAlt)
+{
+    if(!m_bLinked) return ERR_NOLINK;
+    X2MutexLocker ml(GetMutex());
+
+    if(m_bIsZWOMount) {
+        double dRa, dDec;
+        if(m_pTheSkyXForMounts->HzToEq(dAz, dAlt, dRa, dDec) == SB_OK) {
+            m_bParked = false;
+            return m_pMount->startSlewTo(dRa, dDec);
+        }
+        // HzToEq failed (e.g. below horizon) — fall through to :hP# as before
+    }
+    return m_pMount->gotoPark();
+}
+```
+`m_bParked` is cleared here so `isCompleteUnpark` works correctly on a subsequent unpark.
+
+**3 — `isCompletePark`: poll slew completion for ZWO RA/Dec park path.**
+Currently polls `isParkingComplete()` which uses `:Gps#`. After a RA/Dec GOTO park, `:Gps#` will never return `2` (we never sent `:hP#`), so completion detection would be broken. Add slew-based polling for ZWO.
+
+A clean way: add a flag `m_bZWOParkViaGoto` (set in step 2 when `HzToEq` succeeds), then in `isCompletePark`:
+```cpp
+if(m_bIsZWOMount && m_bZWOParkViaGoto) {
+    nErr = m_pMount->isSlewToComplete(bComplete);
+    if(bComplete) {
+        m_bParked = true;
+        m_bZWOParkViaGoto = false;
+        m_pMount->setTrackingRates(false, true, 0.0, 0.0); // stop tracking
+    }
+    return nErr;
+}
+// else fall through to existing isParkingComplete() path (:Gps#)
 ```
 
-**Cause:** `#pragma mark - Section Name` is an Apple/Clang extension for Xcode's
-function navigator. GCC (Linux) doesn't recognise it.
+**4 — Optional: teach the mount its park position as a side effect.**
+When the RA/Dec GOTO completes and the mount is physically at the TSX-stored park position, optionally call `:Sp01#` to record this as the mount's stored park position. This means future `:hP#` calls (e.g., from a power cycle) will also return to the correct position.
+This step is low-risk but not strictly required for the feature to work.
 
-**Fix options (pick one):**
-1. Wrap all `#pragma mark` lines in `x2mount.cpp` with `#ifdef __APPLE__` / `#endif`.
-2. Replace with a plain comment `// --- Section Name ---` which works everywhere.
-3. Add `-Wno-unknown-pragmas` to `CXXFLAGS` in the `Makefile` (hides the symptom but keeps the macOS benefit without macOS-only guards in source).
+#### Effect on the ZWO settings dialog "Set Current Position as Park" button
+That button (`:Sp01#`) still works and remains the way to set the mount-firmware park position for `:hP#`-based parking (e.g., if TSX coordinates are unavailable). The two mechanisms coexist independently.
 
-Option 2 is cleanest — it preserves the section marker intent on all platforms without ifdefs.
-The `#pragma once` / `#ifndef` header guards are not affected (those are standard).
+#### Testing
+1. Set park position in TSX Shutdown menu ("Set Park Position") while scope is at desired position.
+2. Slew scope elsewhere. Click "Park". Scope should return to the set position.
+3. "Clear Park Position" in TSX menu should clear it; subsequent Park should use the mount's own stored position (fallback `:hP#` path).
+4. ZWO Advanced settings "Set Current Position as Park" button should continue to work independently.
