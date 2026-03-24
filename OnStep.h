@@ -187,7 +187,7 @@ protected:
 	double  m_dGotoRATarget = 0;						  // Current Target RA;
 	double  m_dGotoDECTarget = 0;                      // Current Goto Target Dec;
 
-	MountDriverInterface::MoveDir      m_nOpenLoopDir;
+	unsigned int    m_nOpenLoopDirMask = 0; // bitmask of active dirs: bit N=MD_NORTH..MD_WEST (values 0-3)
 
 	// limits don't change mid-course so we cache them
 	bool    m_bLimitCached = false;

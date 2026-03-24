@@ -1242,18 +1242,16 @@ int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned 
 	std::string sResp;
 	std::string sCmd;
 	std::stringstream sTmp;
-	m_nOpenLoopDir = Dir;
+	m_nOpenLoopDirMask |= (1u << static_cast<unsigned>(Dir));
 
 	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting dir to  : " << Dir << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting dir to  : " << Dir << " mask now: " << m_nOpenLoopDirMask << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting rate to : " << nRate << std::endl;
 	m_sLogFile.flush();
 	}
 
 	// select rate
 	nErr = setSlewRate(nRate);
-
-	m_nOpenLoopDir = Dir;
 
 	if(nErr)
 		return nErr;
@@ -1305,24 +1303,19 @@ int OnStep::stopOpenLoopMove()
 	std::string sResp;
 
 	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dir was  : " << m_nOpenLoopDir << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] active dir mask: " << m_nOpenLoopDirMask << std::endl;
 	m_sLogFile.flush();
 	}
 
-	switch(m_nOpenLoopDir){
-		case MountDriverInterface::MD_NORTH:
-			nErr = sendCommand(":Qn#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
-			break;
-		case MountDriverInterface::MD_SOUTH:
-			nErr = sendCommand(":Qs#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
-			break;
-		case MountDriverInterface::MD_EAST:
-			nErr = sendCommand(":Qe#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
-			break;
-		case MountDriverInterface::MD_WEST:
-			nErr = sendCommand(":Qw#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
-			break;
-	}
+	if(m_nOpenLoopDirMask & (1u << MountDriverInterface::MD_NORTH))
+		nErr = sendCommand(":Qn#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	if(m_nOpenLoopDirMask & (1u << MountDriverInterface::MD_SOUTH))
+		nErr = sendCommand(":Qs#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	if(m_nOpenLoopDirMask & (1u << MountDriverInterface::MD_EAST))
+		nErr = sendCommand(":Qe#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	if(m_nOpenLoopDirMask & (1u << MountDriverInterface::MD_WEST))
+		nErr = sendCommand(":Qw#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	m_nOpenLoopDirMask = 0;
 
 	return nErr;
 }
