@@ -965,7 +965,7 @@ int OnStep::setSlewRate(int nRate)
 		return COMMAND_FAILED;
 
 	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. nRate=" << nRate << std::endl;
 	m_sLogFile.flush();
 	}
 
@@ -993,7 +993,7 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	bool bAligned;
 
 	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. dRa=" << dRa << " dDec=" << dDec << std::endl;
 	m_sLogFile.flush();
 	}
 

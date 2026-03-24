@@ -58,8 +58,8 @@ We implement every interface that any of the comparison plugins implement, plus 
 | **Guiding** | | | | | |
 | Pulse guide (via OLM) | `:Me#`/`:Mw#` etc | ✅ | ❌ (base) | ❌ | Needs nighttime |
 | Native pulse guide | `:Mgdnnnn#` | ✅ | ✅ | ❌ | Via DirectGuideInterface |
-| Set guide rate | `:Rg0.nn#` | ✅ | ✅ | ❌ | `setGuideRate()` sends `:Rg%.2f#`. Called on settings dialog save when connected. |
-| Get guide rate | `:Ggr#` | ✅ | ✅ | ❌ | `getGuideRate()` called at end of `Connect()`; result synced into `X2Mount::m_dZWOGuideRate` so DirectGuide math and settings dialog both reflect actual mount state. |
+| Set guide rate | `:Rg0.nn#` | ✅ | ✅ | ❌ | `setGuideRate()` sends `:Rg%.2f#`. Called on settings dialog save when connected. **Spec confirmed: mount honors this.** UI spinner clamped 0.10–0.90 matches spec range. |
+| Get guide rate | `:Ggr#` | ✅ | ✅ | ❌ | `getGuideRate()` called at end of `Connect()`; result synced into `X2Mount::m_dZWOGuideRate` so DirectGuide math and settings dialog both reflect actual mount state. **Spec confirmed.** |
 | **Sync** | | | | | |
 | Sync position | `:CM#` | ✅ | ❌ (base) | ❌ | — |
 | Clear multi-star cal | `:NSC#` | ❌ | — | ❌ | — |
@@ -170,17 +170,33 @@ For standard OnStep, `startPark(dAz, dAlt)` → `gotoParkPos()` → `:MA#` (AltA
 
 ### TODO-1: Slew Rate Setting Not Honored
 
-**Status:** Not started
+**Status:** ✅ Resolved (confirmed via ZWO protocol spec v2.1)
 
-**Symptom:** The slew rate configured in the driver's setup/config UI does not appear to take
-effect. The mount slews at a fixed or default rate regardless of the setting.
+**Root cause (two bugs):**
 
-**Investigation starting points:**
-- Ask user to provide you with the ZWO protocol spec PDF. Read the spec and confirm that our commands are correct.
-- Find where the slew rate is stored in `IniUtil` (search `pIniUtil->write` calls in `x2mount.cpp`)
-- Find where it is sent to the mount (look for `:RS#` or `:R<n>#` OnStep serial commands)
-- Verify the value is read back correctly at connect time and applied
-- Check whether TSX calls a rate-setting method at slew time vs. our plugin applying it proactively
+**Bug A — Wrong rate names for indices 6–9.**
+The base class labels `{"0.25x","0.5x","1x (Guide)","2x","4x (Centering)","8x (Move)","24x (Slew)","48x","Half-Max","Max"}` match standard OnStep firmware but not ZWO.
+ZWO spec-confirmed levels: 0.25x, 0.5x, 1x, 2x, 4x, 8x, **20x, 60x, 720x, 1440x** sidereal.
+→ **Fixed**: `ZWOMount::getRateName()` override returns ZWO-correct names.
+
+**Bug B — `:Rn#` sent before GOTO had no effect and clobbered OLM rate.**
+The ZWO spec procedure example (p.26) shows GOTO as `:Sr#` → `:Sd#` → `:MS#` — no `:Rn#`.
+The manual-move procedure is `:Rn#` → `:Mn#`/`:Me#` etc. `:Rn#` is OLM-only; ZWO GOTO
+always runs at firmware-fixed maximum speed. Sending `:Rn#` before `:MS#` silently
+changed the OLM rate mid-session for no GOTO benefit.
+→ **Fixed**: `ZWOMount::startSlewTo()` override skips `setSlewRate()`. `:Rn#` continues
+to be applied before every OLM move via `OnStep::startOpenLoopMove()`.
+
+**Design note:** For ZWO, the config UI "Slew Rate" setting now only controls OLM (manual
+move) speed. GOTO always runs at max speed. The UI label is technically mislabeled
+("Slew Rate" vs "Manual Move Rate") — consider updating the `.ui` file if it causes confusion.
+
+**Spec cross-checks (all correct):**
+- `:Rn#` response: None ✓ (we use fire-and-forget)
+- `:hP#` response: None ✓ (we use timeout=0)
+- `:Gps#` 0/1/2/3 → 2=parked ✓
+- `:Gh#` 0=never homed, 1=homed ✓ (our `m_bHasBeenHomed` fallback handles firmware quirk)
+- `:Sp01#` requires homing first (PARK_NOT_GO_HOME=5) — our UI only enables the button when connected; user must home first or the firmware returns error 5.
 
 ### TODO-2: Internal State Storage Audit (Homed/Parked/etc.)
 
@@ -194,3 +210,27 @@ effect. The mount slews at a fixed or default rate regardless of the setting.
 - Parking state is correctly initialized at connect and survives disconnect/reconnect
 
 **Files to review:** `OnStep.h`, `OnStep.cpp`, `ZWOMount.h`, `ZWOMount.cpp`, `x2mount.h`, `x2mount.cpp`
+
+### TODO-3: Eliminate `#pragma mark` Build Warnings
+
+**Status:** Not started
+
+**Symptom:** Linux GCC emits 5 warnings on every build from `x2mount.cpp`:
+```
+x2mount.cpp:960: warning: ignoring '#pragma mark ' [-Wunknown-pragmas]
+x2mount.cpp:1013: ...
+x2mount.cpp:1023: ...
+x2mount.cpp:1129: ...
+x2mount.cpp:1185: ...
+```
+
+**Cause:** `#pragma mark - Section Name` is an Apple/Clang extension for Xcode's
+function navigator. GCC (Linux) doesn't recognise it.
+
+**Fix options (pick one):**
+1. Wrap all `#pragma mark` lines in `x2mount.cpp` with `#ifdef __APPLE__` / `#endif`.
+2. Replace with a plain comment `// --- Section Name ---` which works everywhere.
+3. Add `-Wno-unknown-pragmas` to `CXXFLAGS` in the `Makefile` (hides the symptom but keeps the macOS benefit without macOS-only guards in source).
+
+Option 2 is cleanest — it preserves the section marker intent on all platforms without ifdefs.
+The `#pragma once` / `#ifndef` header guards are not affected (those are standard).

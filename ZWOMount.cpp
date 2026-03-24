@@ -994,3 +994,61 @@ int ZWOMount::getflipHourAngle(double &dHourAngle)
 
 	return PLUGIN_OK;
 }
+
+// ZWO spec v2.1: :Rn# speed levels 0-9 = 0.25x, 0.5x, 1x, 2x, 4x, 8x, 20x, 60x, 720x, 1440x sidereal.
+// These differ from standard OnStep at indices 6-9 (OnStep: 24x, 48x, Half-Max, Max).
+static const std::vector<std::string> s_ZWOSlewRateNames = {
+	"0.25x", "0.5x", "1x", "2x", "4x", "8x", "20x", "60x", "720x", "1440x"
+};
+
+int ZWOMount::getRateName(int nZeroBasedIndex, std::string &sOut)
+{
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. nZeroBasedIndex=" << nZeroBasedIndex << std::endl;
+		m_sLogFile.flush();
+	}
+	if(nZeroBasedIndex < 0 || nZeroBasedIndex >= (int)s_ZWOSlewRateNames.size())
+		return PLUGIN_ERROR;
+	sOut = s_ZWOSlewRateNames[nZeroBasedIndex];
+	return PLUGIN_OK;
+}
+
+// ZWO GOTO always runs at firmware-fixed maximum speed.
+// Per ZWO protocol spec v2.1 procedure example: GOTO flow is :Sr# -> :Sd# -> :MS#.
+// :Rn# is never part of the GOTO sequence — it only controls OLM (manual move) speed.
+// Do NOT call setSlewRate() here; it would clobber the user's OLM rate setting for no benefit.
+int ZWOMount::startSlewTo(double dRa, double dDec)
+{
+	int nErr = PLUGIN_OK;
+	bool bAligned;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. dRa=" << dRa << " dDec=" << dDec << std::endl;
+		m_sLogFile.flush();
+	}
+
+	nErr = isAligned(bAligned);
+	if(nErr)
+		return nErr;
+	if(!bAligned) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Mount not homed/aligned, refusing slew." << std::endl;
+			m_sLogFile.flush();
+		}
+		return ERR_MOUNTNOTHOMED;
+	}
+
+	nErr = setTarget(dRa, dDec);
+	if(nErr)
+		return nErr;
+
+	nErr = slewTargetRaDecEpochNow();
+	if(nErr) {
+		if(m_nDebugLevel >= 1) {
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] error " << nErr << std::endl;
+			m_sLogFile.flush();
+		}
+	}
+	m_bIsSlewing = true;
+	return nErr;
+}

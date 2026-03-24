@@ -28,6 +28,8 @@ public:
 	int setGuideRate(double dRate) override;
 	int homeMount() override;
 	int isHomingDone(bool &bIsHomed) override;
+	int getRateName(int nZeroBasedIndex, std::string &sOut) override;
+	int startSlewTo(double dRa, double dDec) override;
 };
 
 #endif // __ZWOMount__

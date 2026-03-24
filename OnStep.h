@@ -82,13 +82,13 @@ public:
 	virtual int getGuideRate(double &dRate) { dRate = m_dZWOGuideRate; return PLUGIN_OK; }
 	virtual int setGuideRate(double dRate) { m_dZWOGuideRate = dRate; return PLUGIN_OK; }
 
-	int startSlewTo(double dRa, double dDec);
+	virtual int startSlewTo(double dRa, double dDec);
 	int isSlewToComplete(bool &bComplete);
 
 	int startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned int nRate);
 	int stopOpenLoopMove();
 	int getNbSlewRates();
-	int getRateName(int nZeroBasedIndex, std::string &sOut);
+	virtual int getRateName(int nZeroBasedIndex, std::string &sOut);
 
 	virtual int startPulseGuide(std::string sDirection, int nDurationMs);
 
