@@ -309,7 +309,7 @@ After sending `:hC#`, returned `bIsHomed=true` immediately because `m_bIsAtHome`
 **Bug 4: `isCompleteFindHome` returned false in background polls**
 After `endFindHome()` sets `m_bFindHomeInitiated = false`, TSX background polls call
 `isCompleteFindHome` without a prior `startFindHome`.
-**Fix:** When `m_bFindHomeInitiated == false`, return `hasCachedHomedState()` immediately.
+**Fix:** When `m_bFindHomeInitiated == false`, return `cachedHasBeenHomed()` immediately.
 
 **Bug 5: `u2 = 0` in `motorStatus2` corrupted the vtable thunk** (2026-03-23)
 TSX's `updateHomeStatus` call site passes only one output arg (x1 = sp+63 for u1). x2 holds the

@@ -303,7 +303,7 @@ int X2Mount::isCompleteFindHome(bool& bComplete) const
 	// real homed state.  When no active homing is in progress we return the cached value
 	// so we don't send a serial command on every poll.
 	if(!pMe->m_bFindHomeInitiated) {
-		bComplete = pMe->m_pMount->hasCachedHomedState();
+		bComplete = pMe->m_pMount->cachedHasBeenHomed();
 		pMe->m_pMount->log("[isCompleteFindHome] no active homing — bComplete=" + std::string(bComplete ? "Yes" : "No"));
 		return SB_OK;
 	}
@@ -330,7 +330,7 @@ int X2Mount::motorStatus(unsigned short& u1, unsigned short& u2)
 	// (The "do not write u2" restriction only applies to motorStatus2 in updateHomeStatus.)
 	u1 = 0;
 	u2 = 0;
-	if(m_bLinked && m_pMount->hasCachedHomedState()) {
+	if(m_bLinked && m_pMount->cachedHasBeenHomed()) {
 		u1 = 0x1000;
 		u2 = 0x1000;
 	}
@@ -349,7 +349,7 @@ int X2Mount::motorStatus2(unsigned short& u1, unsigned short& u2)
 	// would corrupt the thunk's machine code (sub x0,x0,#0xa0 → sub x0,x0,#0x20) via COW.
 	(void)u2;
 	u1 = 0;
-	if(m_bLinked && m_pMount->hasCachedHomedState())
+	if(m_bLinked && m_pMount->cachedHasBeenHomed())
 		u1 = 1;
 	if(m_nDebugLevel >= 3)
 		m_pMount->log("[motorStatus2] u1=" + std::to_string(u1));

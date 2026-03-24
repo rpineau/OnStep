@@ -55,7 +55,7 @@ public:
 	bool isConnected() const { return m_bIsConnected; }
 	// Cheap cached accessor — no serial I/O. Used by X2Mount::motorStatus2() to
 	// report homed state to TSX without issuing a :GU# command on every poll.
-	bool hasCachedHomedState() const { return m_bHasBeenHomed; }
+	bool cachedHasBeenHomed() const { return m_bHasBeenHomed; }
 	
 	void setPortSpeed(int nPortSpeed);
 
