@@ -213,7 +213,7 @@ move) speed. GOTO always runs at max speed. The UI label is technically mislabel
 
 ### TODO-3: Eliminate `#pragma mark` Build Warnings
 
-**Status:** Not started
+**Status:** ✅ Resolved
 
 **Symptom:** Linux GCC emits 5 warnings on every build from `x2mount.cpp`:
 ```

@@ -146,7 +146,7 @@ int X2Mount::queryAbstraction(const char* pszName, void** ppVal)
 	return SB_OK;
 }
 
-#pragma mark - OpenLoopMoveInterface
+// --- OpenLoopMoveInterface ---
 
 int X2Mount::startOpenLoopMove(const MountDriverInterface::MoveDir& Dir, const int& nRateIndex)
 {
@@ -214,7 +214,7 @@ int X2Mount::useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterfac
 	return queryAbstraction(OpenLoopMoveInterface_Name, (void**)pOLSI);
 }
 
-#pragma mark - DirectGuideInterface
+// --- DirectGuideInterface ---
 
 int X2Mount::directGuideMoveTelescope(const double& dRA, const double& dDec)
 {
@@ -270,7 +270,7 @@ int X2Mount::setDirectGuideAsynchronous(bool /* bAsync */)
 	return SB_OK;
 }
 
-#pragma mark - FindHomeInterface
+// --- FindHomeInterface ---
 
 int X2Mount::startFindHome()
 {
@@ -323,7 +323,7 @@ int X2Mount::endFindHome()
 	return SB_OK;
 }
 
-#pragma mark - MotorStatusInterface
+// --- MotorStatusInterface ---
 
 int X2Mount::motorStatus(unsigned short& u1, unsigned short& u2)
 {
@@ -350,6 +350,7 @@ int X2Mount::motorStatus2(unsigned short& u1, unsigned short& u2)
 	// Do NOT write to u2 — TSX passes only one output arg (x1=sp+63). At the call site,
 	// x2 holds the motorStatus2 thunk address, not a second output pointer. Writing u2
 	// would corrupt the thunk's machine code (sub x0,x0,#0xa0 → sub x0,x0,#0x20) via COW.
+	(void)u2;
 	u1 = 0;
 	if(m_bLinked && m_pMount->hasCachedHomedState())
 		u1 = 1;
@@ -358,7 +359,7 @@ int X2Mount::motorStatus2(unsigned short& u1, unsigned short& u2)
 	return SB_OK;
 }
 
-#pragma mark - UI binding
+// --- UI binding ---
 
 int X2Mount::execModalSettingsDialog(void)
 {
@@ -471,6 +472,10 @@ int X2Mount::execModalSettingsDialog(void)
 		dx->setPropertyInt("pushButton_homeMount", "visible", 0);
 		dx->setPropertyInt("homingProgress", "visible", 0);
 		dx->setPropertyInt("groupBox_parking", "visible", 0);
+		// ZWO: :Rn# only sets manual-move speed; GOTO always runs at firmware max speed
+		dx->setText("label_slewRate", "Manual move rate :");
+		dx->setPropertyString("label_slewRate", "toolTip", "Speed used for N/S/E/W manual moves only.\nZWO GOTO always runs at maximum speed — this setting has no effect on GOTO slews.");
+		dx->setPropertyString("comboBox_slewRate", "toolTip", "Speed used for N/S/E/W manual moves only.\nZWO GOTO always runs at maximum speed — this setting has no effect on GOTO slews.");
 
 		// Read live values from mount if connected
 		if(m_bLinked) {
@@ -758,7 +763,7 @@ void X2Mount::getProgress(char &c, bool bReset)
 	m_nProgress_index++;
 }
 
-#pragma mark - LinkInterface
+// --- LinkInterface ---
 int X2Mount::establishLink(void)
 {
 	int nErr;
@@ -808,7 +813,7 @@ bool X2Mount::isEstablishLinkAbortable(void) const
 	return false;
 }
 
-#pragma mark - AbstractDriverInfo
+// --- AbstractDriverInfo ---
 
 void	X2Mount::driverInfoDetailedInfo(BasicStringInterface& str) const
 {
@@ -861,7 +866,7 @@ void X2Mount::deviceInfoModel(BasicStringInterface& str)
 		str = "Not connected";
 }
 
-#pragma mark - Common Mount specifics
+// --- Common Mount specifics ---
 int X2Mount::raDec(double& ra, double& dec, const bool& )
 {
 	int nErr = 0;
@@ -957,7 +962,7 @@ bool X2Mount::isSynced(void)
 	return m_bSynced;
 }
 
-#pragma mark - TrackingRatesInterface
+// --- TrackingRatesInterface ---
 int X2Mount::setTrackingRates(const bool& bSiderialTrackingOn, const bool& bIgnoreRates, const double& dRaRateArcSecPerSec, const double& dDecRateArcSecPerSec)
 {
 	int nErr = SB_OK;
@@ -1010,7 +1015,7 @@ int X2Mount::trackingOff()
 	return nErr;
 }
 
-#pragma mark - NeedsRefractionInterface
+// --- NeedsRefractionInterface ---
 bool X2Mount::needsRefactionAdjustments(void)
 {
 
@@ -1020,7 +1025,7 @@ bool X2Mount::needsRefactionAdjustments(void)
 	return true;
 }
 
-#pragma mark - Parking Interface
+// --- Parking Interface ---
 bool X2Mount::isParked(void)
 {
 	int nErr;
@@ -1126,7 +1131,7 @@ int X2Mount::endUnpark(void)
 	return SB_OK;
 }
 
-#pragma mark - AsymmetricalEquatorialInterface
+// --- AsymmetricalEquatorialInterface ---
 
 bool X2Mount::knowsBeyondThePole()
 {
@@ -1182,7 +1187,7 @@ int X2Mount::gemLimits(double& dHoursEast, double& dHoursWest)
 	return nErr;
 }
 
-#pragma mark - SerialPortParams2Interface
+// --- SerialPortParams2Interface ---
 
 void X2Mount::portName(BasicStringInterface& str) const
 {

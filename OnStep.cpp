@@ -126,7 +126,7 @@ void OnStep::setPortSpeed(int nPortSpeed)
 	m_nPortSpeed = nPortSpeed;
 }
 
-#pragma mark - OnStep communication
+// --- OnStep communication ---
 int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout, char cEndOfResponse, int nExpectedResLen)
 {
 	int nErr = PLUGIN_OK;
@@ -399,7 +399,7 @@ int OnStep::getStatus()
 	return nErr;
 }
 
-#pragma mark - Mount Coordinates
+// --- Mount Coordinates ---
 int OnStep::getRaAndDec(double &dRa, double &dDec)
 {
 	int nErr = PLUGIN_OK;
@@ -678,7 +678,7 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 	return nErr;
 }
 
-#pragma mark - Sync and Cal
+// --- Sync and Cal ---
 int OnStep::syncTo(double dRa, double dDec)
 {
 	int nErr = PLUGIN_OK;
@@ -747,7 +747,7 @@ int OnStep::isAligned(bool &bAligned)
 	return nErr;
 }
 
-#pragma mark - tracking rates
+// --- tracking rates ---
 int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double dRaRateArcSecPerSec, double dDecRateArcSecPerSec)
 {
 	int nErr = PLUGIN_OK;
@@ -870,7 +870,7 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
 }
 
 
-#pragma mark - Limits
+// --- Limits ---
 int OnStep::getLimits(double &dHoursEast, double &dHoursWest)
 {
 	int nErr = PLUGIN_OK;
@@ -953,7 +953,7 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 	return nErr;
 }
 
-#pragma mark - Slew
+// --- Slew ---
 
 int OnStep::setSlewRate(int nRate)
 {
@@ -1705,7 +1705,7 @@ int OnStep::Abort()
 	return nErr;
 }
 
-#pragma mark - time and site methods
+// --- time and site methods ---
 int OnStep::syncTime()
 {
 	int nErr = PLUGIN_OK;
@@ -2000,7 +2000,7 @@ void OnStep::setSyncLocationDataConnect(bool bSync)
 	m_bSyncLocationDataConnect = bSync;
 }
 
-#pragma mark  - Time and Date
+// --- Time and Date ---
 
 int OnStep::getLocalTime(std::string &sTime)
 {
@@ -2314,7 +2314,7 @@ void OnStep::setStopTrackingOnDisconnect(bool bStop)
 }
 
 
-#pragma mark - Parse result
+// --- Parse result ---
 int OnStep::parseFields(const std::string sIn, std::vector<std::string> &svFields, char cSeparator)
 {
 	int nErr = PLUGIN_OK;

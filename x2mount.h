@@ -54,8 +54,12 @@
 
 #if defined(WIN32)
 #define __CLASS_ATTRIBUTE__(x)
-#else
+#elif defined(__APPLE__)
+// Clang/macOS: weak is valid on types (marks vtable/typeinfo symbols weak)
 #define __CLASS_ATTRIBUTE__(x) __attribute__(x)
+#else
+// GCC/Linux: weak is invalid on types; keep only visibility
+#define __CLASS_ATTRIBUTE__(x) __attribute__((visibility("default")))
 #endif
 
 class DirectGuideInterface {
