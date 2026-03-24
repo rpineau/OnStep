@@ -29,7 +29,7 @@ We implement every interface that any comparison plugin implements. `FindHomeInt
 |---------|-----------------|-------------|--------------|--------|--------|
 | **Connection** | | | | | |
 | Serial connect (9600 baud) | — | ✅ | ✅ | ✅ | Pass |
-| WiFi connect (192.168.4.1:4030) | — | ✅ (via TSX) | — | ❌ | — |
+| WiFi connect (192.168.4.1:4030) | — | N/A | — | — | Out of scope: this driver targets USB serial only. WiFi is handled at the TSX network layer, not the driver. |
 | Set lat/long on connect | `:SMGE` | ✅ | ✅ | ✅ | Pass |
 | Set date/time/tz on connect | `:SMTI` | ✅ | ✅ | ✅ | Pass |
 | Auto-home on connect | `:hC#` | ❌ removed | — | — | Removed: mount must not move on connect. Homing via TSX Startup → Find Home. |
@@ -71,7 +71,7 @@ We implement every interface that any comparison plugin implements. `FindHomeInt
 | Park (goto + finalize) | `:Sp01#` `:hP#` | ✅ | ✅ | ✅ | Pass. TSX slews mount to park position (SlewToInterface), then calls `startPark` → `gotoPark`. `gotoPark` sends `:Sp01#` (register current position as park 1) + `:hP#`. `isParkingComplete` returns true immediately. |
 | Park status (isParked) | `m_bZWOParked` | ✅ | ✅ | ✅ | Pass. `:Gps#` always returns empty on this firmware; `:GU#` never sets 'P'. `getAtPark()` falls back to `m_bZWOParked`, set by `finalizepark()`, cleared by `gotoPark()`/`unPark()`. |
 | Set custom park position | `:Sp01#` | ✅ | ✅ | ✅ | Auto-sent in `gotoPark()`. Also callable via "Set Current Position as Park" button. |
-| Unpark | `:Spu#` | ✅ | ✅ | ❌ | ZWO override sends `:Spu#`. Clears `m_bZWOParked`. Needs on-mount test. |
+| Unpark | `:Spu#` | ✅ | ✅ | ✅ | Pass. ZWO override sends `:Spu#`. Clears `m_bZWOParked`. |
 | **Meridian Limits** | | | | | |
 | Get limits | `:GTa#` | ✅ | ✅ | ✅ | Pass |
 | Set meridian behavior | `:STannsnn#` | ✅ | ✅ | ✅ | Pass. Was broken: sent `:STA…` (uppercase) — fixed to `:STa…`. |
@@ -101,10 +101,8 @@ We implement every interface that any comparison plugin implements. `FindHomeInt
 ## Priority TODO Items
 
 ### Nice to Have
-- [ ] **Unpark**: Test `:Spu#` on mount.
 - [ ] **Pulse guide / autoguiding**: Test DirectGuideInterface + `:Mgdnnnn#` at night.
 - [ ] **Daylight saving** (`:GH#`/`:SHn#`): SMTI handles timezone; DST handling may need verification.
-- [ ] **WiFi connection**: Test over WiFi (192.168.4.1:4030).
 
 ### Not Needed
 - EQ/AZ mode switch — always equatorial mode
