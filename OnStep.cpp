@@ -2375,12 +2375,14 @@ void OnStep::log(std::string sLogEntry)
 
 const std::string OnStep::getTimeStamp()
 {
-	time_t     now = time(0);
-	struct tm  tstruct;
-	char       buf[80];
-	tstruct = *localtime(&now);
-	std::strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
-
-	return buf;
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	struct tm tstruct;
+	localtime_r(&ts.tv_sec, &tstruct);
+	char buf[32];
+	std::strftime(buf, sizeof(buf), "%Y-%m-%d.%H:%M:%S", &tstruct);
+	char result[40];
+	snprintf(result, sizeof(result), "%s.%03d", buf, (int)(ts.tv_nsec / 1000000L));
+	return result;
 }
 

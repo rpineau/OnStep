@@ -213,9 +213,33 @@ int X2Mount::useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterfac
 
 // --- DirectGuideInterface ---
 
+bool X2Mount::directGuideAsynchronous()
+{
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_pMount->log("[directGuideAsynchronous] Called. returning true");
+#endif
+	return true;
+}
+
+int X2Mount::setDirectGuideAsynchronous(bool bAsync)
+{
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_pMount->log(std::string("[setDirectGuideAsynchronous] Called. bAsync=") + (bAsync ? "Yes" : "No"));
+#else
+	(void)bAsync;
+#endif
+	return SB_OK;
+}
+
 int X2Mount::directGuideMoveTelescope(const double& dRA, const double& dDec)
 {
 	int nErr = SB_OK;
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	std::stringstream ss;
+	ss << std::fixed << std::setprecision(6)
+	   << "[directGuideMoveTelescope] Called. dRA=" << dRA << " dDec=" << dDec << " arcsec";
+	m_pMount->log(ss.str());
+#endif
 	if(!m_bLinked)
 		return ERR_NOLINK;
 
@@ -225,46 +249,64 @@ int X2Mount::directGuideMoveTelescope(const double& dRA, const double& dDec)
 	// Base guide rate in arcsec/sec
 	double siderealArcsecPerSec = 15.04106858;
 	double guideArcsecPerSec = m_dZWOGuideRate * siderealArcsecPerSec;
-	if (guideArcsecPerSec == 0.0)
+	if (guideArcsecPerSec == 0.0) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 1
+		m_pMount->log("[directGuideMoveTelescope] guideArcsecPerSec==0, ERR_CMDFAILED");
+#endif
 		return ERR_CMDFAILED;
+	}
 
-	int raMs = std::abs(dRA) / guideArcsecPerSec * 1000.0;
-	int decMs = std::abs(dDec) / guideArcsecPerSec * 1000.0;
+	// ZWO firmware accepts 0000-3000 ms per :Mgd spec; clamp to avoid out-of-spec commands.
+	int raMs  = std::min((int)(std::abs(dRA)  / guideArcsecPerSec * 1000.0), 3000);
+	int decMs = std::min((int)(std::abs(dDec) / guideArcsecPerSec * 1000.0), 3000);
+
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	std::stringstream ss2;
+	ss2 << "[directGuideMoveTelescope] guideRate=" << m_dZWOGuideRate
+	    << " raMs=" << raMs << " decMs=" << decMs;
+	m_pMount->log(ss2.str());
+#endif
 
 	// Send RA pulse
 	if (raMs > 0) {
 		std::string dir = (dRA > 0) ? "e" : "w";
 		nErr = m_pMount->startPulseGuide(dir, raMs);
-		if (nErr) return nErr;
+		if (nErr) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 1
+			m_pMount->log(std::string("[directGuideMoveTelescope] startPulseGuide RA error ") + std::to_string(nErr));
+#endif
+			return nErr;
+		}
 	}
 
 	// Send DEC pulse
 	if (decMs > 0) {
 		std::string dir = (dDec > 0) ? "n" : "s";
 		nErr = m_pMount->startPulseGuide(dir, decMs);
-		if (nErr) return nErr;
+		if (nErr) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 1
+			m_pMount->log(std::string("[directGuideMoveTelescope] startPulseGuide DEC error ") + std::to_string(nErr));
+#endif
+			return nErr;
+		}
 	}
 
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_pMount->log("[directGuideMoveTelescope] nErr=" + std::to_string(nErr));
+#endif
 	return SB_OK;
 }
 
 int X2Mount::directGuideAbort()
 {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	m_pMount->log("[directGuideAbort] Called.");
+#endif
 	if(!m_bLinked)
 		return ERR_NOLINK;
 
 	X2MutexLocker ml(GetMutex());
 	return m_pMount->Abort();
-}
-
-bool X2Mount::directGuideAsynchronous()
-{
-	return true;
-}
-
-int X2Mount::setDirectGuideAsynchronous(bool /* bAsync */)
-{
-	return SB_OK;
 }
 
 // --- FindHomeInterface ---
