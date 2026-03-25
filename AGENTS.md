@@ -225,19 +225,28 @@ std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 ### Debug Logging
 
-Wrap all debug output in preprocessor guards:
+Guard all debug output with runtime level checks against `m_nDebugLevel`. Do **not** use `#if defined PLUGIN_DEBUG` preprocessor guards for logging — that is a compile-time switch and is not how this codebase works.
+
+In `OnStep.cpp` / `ZWOMount.cpp`, write directly to `m_sLogFile`:
 
 ```cpp
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+if(m_nDebugLevel >= 2) {
     m_sLogFile << "["<<getTimeStamp()<<"]"<< " [methodName] message" << std::endl;
     m_sLogFile.flush();
-#endif
+}
 ```
 
-- Level 1 (`PLUGIN_DEBUG >= 1`): Errors only.
-- Level 2 (`PLUGIN_DEBUG >= 2`): Full trace (function entry, values, flow).
-- Level 3 (`PLUGIN_DEBUG >= 3`): Byte-level serial I/O.
-- Always `flush()` after writing.
+In `x2mount.cpp`, delegate to `m_pMount->log()` (which unconditionally writes; the caller is responsible for the guard):
+
+```cpp
+if(m_nDebugLevel >= 2)
+    m_pMount->log("[methodName] message");
+```
+
+- Level 1 (`m_nDebugLevel >= 1`): Errors only.
+- Level 2 (`m_nDebugLevel >= 2`): Full trace (function entry, values, flow).
+- Level 3 (`m_nDebugLevel >= 3`): Byte-level serial I/O.
+- Always `flush()` after writing to `m_sLogFile` directly.
 
 #### Log format requirements
 

@@ -215,31 +215,27 @@ int X2Mount::useOpenLoopMoveInterface(int& nGuideRateIndex, OpenLoopMoveInterfac
 
 bool X2Mount::directGuideAsynchronous()
 {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-	m_pMount->log("[directGuideAsynchronous] Called. returning true");
-#endif
+	if(m_nDebugLevel >= 2)
+		m_pMount->log("[directGuideAsynchronous] Called. returning true");
 	return true;
 }
 
 int X2Mount::setDirectGuideAsynchronous(bool bAsync)
 {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-	m_pMount->log(std::string("[setDirectGuideAsynchronous] Called. bAsync=") + (bAsync ? "Yes" : "No"));
-#else
-	(void)bAsync;
-#endif
+	if(m_nDebugLevel >= 2)
+		m_pMount->log(std::string("[setDirectGuideAsynchronous] Called. bAsync=") + (bAsync ? "Yes" : "No"));
 	return SB_OK;
 }
 
 int X2Mount::directGuideMoveTelescope(const double& dRA, const double& dDec)
 {
 	int nErr = SB_OK;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-	std::stringstream ss;
-	ss << std::fixed << std::setprecision(6)
-	   << "[directGuideMoveTelescope] Called. dRA=" << dRA << " dDec=" << dDec << " arcsec";
-	m_pMount->log(ss.str());
-#endif
+	if(m_nDebugLevel >= 2) {
+		std::stringstream ss;
+		ss << std::fixed << std::setprecision(6)
+		   << "[directGuideMoveTelescope] Called. dRA=" << dRA << " dDec=" << dDec << " arcsec";
+		m_pMount->log(ss.str());
+	}
 	if(!m_bLinked)
 		return ERR_NOLINK;
 
@@ -250,9 +246,8 @@ int X2Mount::directGuideMoveTelescope(const double& dRA, const double& dDec)
 	double siderealArcsecPerSec = 15.04106858;
 	double guideArcsecPerSec = m_dZWOGuideRate * siderealArcsecPerSec;
 	if (guideArcsecPerSec == 0.0) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 1
-		m_pMount->log("[directGuideMoveTelescope] guideArcsecPerSec==0, ERR_CMDFAILED");
-#endif
+		if(m_nDebugLevel >= 1)
+			m_pMount->log("[directGuideMoveTelescope] guideArcsecPerSec==0, ERR_CMDFAILED");
 		return ERR_CMDFAILED;
 	}
 
@@ -260,21 +255,20 @@ int X2Mount::directGuideMoveTelescope(const double& dRA, const double& dDec)
 	int raMs  = std::min((int)(std::abs(dRA)  / guideArcsecPerSec * 1000.0), 3000);
 	int decMs = std::min((int)(std::abs(dDec) / guideArcsecPerSec * 1000.0), 3000);
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-	std::stringstream ss2;
-	ss2 << "[directGuideMoveTelescope] guideRate=" << m_dZWOGuideRate
-	    << " raMs=" << raMs << " decMs=" << decMs;
-	m_pMount->log(ss2.str());
-#endif
+	if(m_nDebugLevel >= 2) {
+		std::stringstream ss2;
+		ss2 << "[directGuideMoveTelescope] guideRate=" << m_dZWOGuideRate
+		    << " raMs=" << raMs << " decMs=" << decMs;
+		m_pMount->log(ss2.str());
+	}
 
 	// Send RA pulse
 	if (raMs > 0) {
 		std::string dir = (dRA > 0) ? "e" : "w";
 		nErr = m_pMount->startPulseGuide(dir, raMs);
 		if (nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 1
-			m_pMount->log(std::string("[directGuideMoveTelescope] startPulseGuide RA error ") + std::to_string(nErr));
-#endif
+			if(m_nDebugLevel >= 1)
+				m_pMount->log(std::string("[directGuideMoveTelescope] startPulseGuide RA error ") + std::to_string(nErr));
 			return nErr;
 		}
 	}
@@ -284,24 +278,21 @@ int X2Mount::directGuideMoveTelescope(const double& dRA, const double& dDec)
 		std::string dir = (dDec > 0) ? "n" : "s";
 		nErr = m_pMount->startPulseGuide(dir, decMs);
 		if (nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 1
-			m_pMount->log(std::string("[directGuideMoveTelescope] startPulseGuide DEC error ") + std::to_string(nErr));
-#endif
+			if(m_nDebugLevel >= 1)
+				m_pMount->log(std::string("[directGuideMoveTelescope] startPulseGuide DEC error ") + std::to_string(nErr));
 			return nErr;
 		}
 	}
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-	m_pMount->log("[directGuideMoveTelescope] nErr=" + std::to_string(nErr));
-#endif
+	if(m_nDebugLevel >= 2)
+		m_pMount->log("[directGuideMoveTelescope] nErr=" + std::to_string(nErr));
 	return SB_OK;
 }
 
 int X2Mount::directGuideAbort()
 {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-	m_pMount->log("[directGuideAbort] Called.");
-#endif
+	if(m_nDebugLevel >= 2)
+		m_pMount->log("[directGuideAbort] Called.");
 	if(!m_bLinked)
 		return ERR_NOLINK;
 
