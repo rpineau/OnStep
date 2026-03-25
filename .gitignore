@@ -32,3 +32,5 @@ build
 lib*/x64
 lib*/Win32
 lib*/.vs
+tsx_disasm.txt
+

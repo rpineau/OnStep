@@ -35,6 +35,7 @@ fi
 cp "./mountlist OnStep.txt" "$TheSkyX_Path/Resources/Common/Miscellaneous Files/"
 cp "./OnStep.ui" "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/"
 cp "./OnStep.png" "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/"
+cp "./ZWO.png" "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/"
 cp "./libOnStep.so" "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/"
 
 app_owner=`/usr/bin/stat -c "%u" "$TheSkyX_Path" | xargs id -n -u`
@@ -42,7 +43,7 @@ if [ ! -z "$app_owner" ]; then
 	chown $app_owner "$TheSkyX_Path/Resources/Common/Miscellaneous Files/mountlist OnStep.txt"
 	chown $app_owner "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/OnStep.ui"
 	chown $app_owner "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/OnStep.png"
+	chown $app_owner "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/ZWO.png"
 	chown $app_owner "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/libOnStep.so"
 fi
 chmod  755 "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/MountPlugIns/libOnStep.so"
-

@@ -64,7 +64,6 @@ int OnStep::Connect(std::string sPort)
 			return nErr;
 		}
 	}
-	m_bSyncDone = false;
 	nErr = isHomingDone(m_bIsAtHome);
 	if(nErr) {
 		if(nErr == ERR_TXTIMEOUT)
@@ -78,6 +77,10 @@ int OnStep::Connect(std::string sPort)
 	}
 	setSlewRate(m_nGoToSlewRate);
 	// unPark();
+
+	// NOTE: ZWOMount::Connect() does NOT call this function. If you add new
+	// initialization here, check whether it also needs to be added to ZWOMount::Connect().
+
 	return nErr;
 }
 
@@ -102,7 +105,6 @@ int OnStep::Disconnect(void)
 		}
 	}
 	m_bIsConnected = false;
-	m_bSyncDone = false;
 
 	return SB_OK;
 }
@@ -126,7 +128,7 @@ void OnStep::setPortSpeed(int nPortSpeed)
 	m_nPortSpeed = nPortSpeed;
 }
 
-#pragma mark - OnStep communication
+// --- OnStep communication ---
 int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout, char cEndOfResponse, int nExpectedResLen)
 {
 	int nErr = PLUGIN_OK;
@@ -137,9 +139,10 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 
 	if(m_commandDelayTimer.GetElapsedSeconds()<INTER_COMMAND_WAIT) {
 		dDelayMs = INTER_COMMAND_WAIT - int(m_commandDelayTimer.GetElapsedSeconds() *1000);
-		if(dDelayMs>0)
+		if(dDelayMs>0) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(dDelayMs));
 			std::this_thread::yield();
+		}
 	}
 
 	
@@ -243,7 +246,7 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 			return nErr;
 		}
 
-		if (ulBytesRead != nBytesWaiting) { // timeout
+		if (ulBytesRead != (unsigned long)nBytesWaiting) {
 	if(m_nDebugLevel >= 1) {
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile Timeout Error." << std::endl;
 			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readFile nBytesWaiting : " << nBytesWaiting << std::endl;
@@ -255,7 +258,7 @@ int OnStep::readResponse(std::string &sResp, int nTimeout, char cEndOfResponse, 
 		ulTotalBytesRead += ulBytesRead;
 		pszBufPtr+=ulBytesRead;
 		// response not ending with the normal end of response char.
-		if(cEndOfResponse == SHORT_RESPONSE && ulTotalBytesRead >= nExpectedResLen) // NYX adds \r\n
+		if(cEndOfResponse == SHORT_RESPONSE && ulTotalBytesRead >= (unsigned long)nExpectedResLen)
 			break;
 	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] pszBuf : "  << pszBuf <<  std::endl;
@@ -314,7 +317,7 @@ int OnStep::getStatus()
 	int nErr = PLUGIN_OK;
 	std::string sStatus;
 	int nIndex = 0;
-	unsigned long nSize;
+	int nSize;
 	nErr = sendCommand(":GU#", sStatus);
 	if(nErr) {
 	if(m_nDebugLevel >= 1) {
@@ -332,7 +335,7 @@ int OnStep::getStatus()
 	m_bIsHoming = false;
 	m_bIsAtHome = false;
 
-	nSize = sStatus.size();
+	nSize = (int)sStatus.size();
 	if(m_nDebugLevel >= 1) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] sStatus (nSize) : " << sStatus << " (" << nSize << ")"<<std::endl;
 	m_sLogFile.flush();
@@ -398,7 +401,7 @@ int OnStep::getStatus()
 	return nErr;
 }
 
-#pragma mark - Mount Coordinates
+// --- Mount Coordinates ---
 int OnStep::getRaAndDec(double &dRa, double &dDec)
 {
 	int nErr = PLUGIN_OK;
@@ -443,10 +446,6 @@ int OnStep::getRaAndDec(double &dRa, double &dDec)
 		dRa = m_dRa;
 		dDec = m_dDec;
 		return PLUGIN_OK;
-	}
-	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dRa : " << std::fixed << std::setprecision(12) << dRa << std::endl;
-	m_sLogFile.flush();
 	}
 	m_dRa = dRa;
 
@@ -681,7 +680,7 @@ int OnStep::setTargetAltAz(double dAlt, double dAz)
 	return nErr;
 }
 
-#pragma mark - Sync and Cal
+// --- Sync and Cal ---
 int OnStep::syncTo(double dRa, double dDec)
 {
 	int nErr = PLUGIN_OK;
@@ -715,8 +714,6 @@ int OnStep::syncTo(double dRa, double dDec)
 		if(sResp.at(0) == 'E') {
 			nErr = ERR_CMDFAILED;
 			// process error
-		} else {
-			m_bSyncDone = true;
 		}
 //	}
 //	else {
@@ -737,12 +734,20 @@ int OnStep::isAligned(bool &bAligned)
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
 	}
+	if(m_nDebugLevel >= 3) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bHasBeenHomed=" << (m_bHasBeenHomed?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
 	// for now
 	bAligned = true;
+	if(m_nDebugLevel >= 2) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bAligned=" << (bAligned?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
 	return nErr;
 }
 
-#pragma mark - tracking rates
+// --- tracking rates ---
 int OnStep::setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double dRaRateArcSecPerSec, double dDecRateArcSecPerSec)
 {
 	int nErr = PLUGIN_OK;
@@ -865,7 +870,7 @@ int OnStep::getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec
 }
 
 
-#pragma mark - Limits
+// --- Limits ---
 int OnStep::getLimits(double &dHoursEast, double &dHoursWest)
 {
 	int nErr = PLUGIN_OK;
@@ -882,9 +887,13 @@ int OnStep::getLimits(double &dHoursEast, double &dHoursWest)
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEe# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
 	}
+	} else {
+		try {
+			dHoursEast = std::stod(sResp)/15.0;
+		} catch (const std::exception& e) {
+			dHoursEast = 0.0;
+		}
 	}
-
-	dHoursEast = std::stod(sResp)/15.0;
 
 	nErr = sendCommand(":GXEw#", sResp);
 	if(nErr) {
@@ -892,9 +901,13 @@ int OnStep::getLimits(double &dHoursEast, double &dHoursWest)
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEw# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
 	}
+	} else {
+		try {
+			dHoursWest = std::stod(sResp)/15.0;
+		} catch (const std::exception& e) {
+			dHoursWest = 0.0;
+		}
 	}
-
-	dHoursWest = std::stod(sResp)/15.0;
 
 	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dHoursEast  : " << std::fixed << std::setprecision(8) << dHoursEast << std::endl;
@@ -910,20 +923,11 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
-	double dEast, dWest;
+	double dWest = 0.0;
 	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
 	}
-
-	nErr = sendCommand(":GXE9#", sResp);
-	if(nErr) {
-	if(m_nDebugLevel >= 1) {
-		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXE9# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
-		m_sLogFile.flush();
-	}
-	}
-	dEast = std::fabs(std::stod(sResp))/15.0;
 
 	nErr = sendCommand(":GXEA#", sResp);
 	if(nErr) {
@@ -931,10 +935,14 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :GXEA# ERROR : " << nErr << " , sResp : " << sResp << std::endl;
 		m_sLogFile.flush();
 	}
+	} else {
+		try {
+			dWest = std::fabs(std::stod(sResp))/15.0;
+		} catch (const std::exception& e) {
+			dWest = 0.0;
+		}
 	}
-	dWest = std::fabs(std::stod(sResp))/15.0;
 
-	// dHourAngle = (dEast>dWest)?dWest:dEast; // we take the smallest one as TSX only has 1 value
 	dHourAngle = dWest;
 	
 	if(m_nDebugLevel >= 2) {
@@ -945,7 +953,7 @@ int OnStep::getflipHourAngle(double &dHourAngle)
 	return nErr;
 }
 
-#pragma mark - Slew
+// --- Slew ---
 
 int OnStep::setSlewRate(int nRate)
 {
@@ -957,7 +965,7 @@ int OnStep::setSlewRate(int nRate)
 		return COMMAND_FAILED;
 
 	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. nRate=" << nRate << std::endl;
 	m_sLogFile.flush();
 	}
 
@@ -985,13 +993,20 @@ int OnStep::startSlewTo(double dRa, double dDec)
 	bool bAligned;
 
 	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. dRa=" << dRa << " dDec=" << dDec << std::endl;
 	m_sLogFile.flush();
 	}
 
 	nErr = isAligned(bAligned);
 	if(nErr)
 		return nErr;
+	if(!bAligned) {
+	if(m_nDebugLevel >= 1) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Mount not homed/aligned, refusing slew." << std::endl;
+		m_sLogFile.flush();
+	}
+		return ERR_MOUNTNOTHOMED;
+	}
 
 	setSlewRate(m_nGoToSlewRate);
 	// set sync target coordinate
@@ -1024,7 +1039,7 @@ int OnStep::slewTargetRaDecEpochNow()
 	}
 	
 	nErr = sendCommand(":MS#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
+	if(nErr == COMMAND_TIMEOUT)
 		nErr = PLUGIN_OK;
 	else if(nErr) {
 	if(m_nDebugLevel >= 1) {
@@ -1034,10 +1049,20 @@ int OnStep::slewTargetRaDecEpochNow()
 		return ERR_CMDFAILED;
 	}
 	if(sResp.size()) {
-		nRespCode = std::stoi(sResp);
+		std::string sCode = sResp;
+		if(sCode.size() && sCode[0] == 'e')
+			sCode = sCode.substr(1);
+		try {
+			nRespCode = std::stoi(sCode);
+		} catch (const std::exception& e) {
+			if(m_nDebugLevel >= 1) {
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Parse error on MS# response : '" << sResp << "' : " << e.what() << std::endl;
+				m_sLogFile.flush();
+			}
+			return ERR_CMDFAILED;
+		}
 		switch(nRespCode) {
 			case 0:
-				// all good
 				break;
 
 			case 1:
@@ -1080,7 +1105,19 @@ int OnStep::slewTargetRaDecEpochNow()
 				nErr = ERR_LX200OUTSIDELIMIT;
 				break;
 
+			case 7:
+	if(m_nDebugLevel >= 1) {
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Time and position not synchronized."  << std::endl;
+				m_sLogFile.flush();
+	}
+				nErr = ERR_CMDFAILED;
+				break;
+
 			default:
+	if(m_nDebugLevel >= 1) {
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Unknown GOTO error code : " << nRespCode << std::endl;
+				m_sLogFile.flush();
+	}
 				nErr = ERR_MKS_SLEW_PAST_LIMIT;
 				break;
 
@@ -1101,9 +1138,7 @@ int OnStep::slewTargetAltAszEpochNow()
 	}
 
 	nErr = sendCommand(":MA#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 1);
-	if(nErr == COMMAND_TIMEOUT) // normal if the command succeed
-		nErr = PLUGIN_OK;
-	else if(nErr) {
+	if(nErr) {
 	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Error slewing, response : " << sResp << std::endl;
 		m_sLogFile.flush();
@@ -1111,7 +1146,18 @@ int OnStep::slewTargetAltAszEpochNow()
 		return ERR_CMDFAILED;
 	}
 	if(sResp.size()) {
-		nRespCode = std::stoi(sResp);
+		std::string sCode = sResp;
+		if(sCode.size() && sCode[0] == 'e')
+			sCode = sCode.substr(1);
+		try {
+			nRespCode = std::stoi(sCode);
+		} catch (const std::exception& e) {
+			if(m_nDebugLevel >= 1) {
+				m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Parse error on MA# response : '" << sResp << "' : " << e.what() << std::endl;
+				m_sLogFile.flush();
+			}
+			return ERR_CMDFAILED;
+		}
 		switch(nRespCode) {
 			case 0:
 				// all good
@@ -1196,18 +1242,16 @@ int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned 
 	std::string sResp;
 	std::string sCmd;
 	std::stringstream sTmp;
-	m_nOpenLoopDir = Dir;
+	m_nOpenLoopDirMask |= (1u << static_cast<unsigned>(Dir));
 
 	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting dir to  : " << Dir << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting dir to  : " << Dir << " mask now: " << m_nOpenLoopDirMask << std::endl;
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] setting rate to : " << nRate << std::endl;
 	m_sLogFile.flush();
 	}
 
 	// select rate
 	nErr = setSlewRate(nRate);
-
-	m_nOpenLoopDir = Dir;
 
 	if(nErr)
 		return nErr;
@@ -1231,6 +1275,27 @@ int OnStep::startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned 
 	return nErr;
 }
 
+int OnStep::startPulseGuide(std::string sDirection, int nDurationMs)
+{
+	int nErr = PLUGIN_OK;
+	std::string sResp;
+
+	if(!m_bIsConnected)
+		return ERR_COMMNOLINK;
+
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dir: " << sDirection << " ms: " << nDurationMs << std::endl;
+		m_sLogFile.flush();
+	}
+
+	// Make sure duration is exactly 4 digits
+	std::stringstream ss;
+	ss << ":Mg" << sDirection << std::setfill('0') << std::setw(4) << nDurationMs << "#";
+
+	nErr = sendCommand(ss.str(), sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	return nErr;
+}
+
 
 int OnStep::stopOpenLoopMove()
 {
@@ -1238,24 +1303,19 @@ int OnStep::stopOpenLoopMove()
 	std::string sResp;
 
 	if(m_nDebugLevel >= 2) {
-	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] dir was  : " << m_nOpenLoopDir << std::endl;
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] active dir mask: " << m_nOpenLoopDirMask << std::endl;
 	m_sLogFile.flush();
 	}
 
-	switch(m_nOpenLoopDir){
-		case MountDriverInterface::MD_NORTH:
-			nErr = sendCommand(":Qn#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
-			break;
-		case MountDriverInterface::MD_SOUTH:
-			nErr = sendCommand(":Qs#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
-			break;
-		case MountDriverInterface::MD_EAST:
-			nErr = sendCommand(":Qe#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
-			break;
-		case MountDriverInterface::MD_WEST:
-			nErr = sendCommand(":Qw#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
-			break;
-	}
+	if(m_nOpenLoopDirMask & (1u << MountDriverInterface::MD_NORTH))
+		nErr = sendCommand(":Qn#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	if(m_nOpenLoopDirMask & (1u << MountDriverInterface::MD_SOUTH))
+		nErr = sendCommand(":Qs#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	if(m_nOpenLoopDirMask & (1u << MountDriverInterface::MD_EAST))
+		nErr = sendCommand(":Qe#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	if(m_nOpenLoopDirMask & (1u << MountDriverInterface::MD_WEST))
+		nErr = sendCommand(":Qw#", sResp, MAX_TIMEOUT, SHORT_RESPONSE, 0);
+	m_nOpenLoopDirMask = 0;
 
 	return nErr;
 }
@@ -1305,7 +1365,6 @@ int OnStep::isSlewToComplete(bool &bComplete)
 int OnStep::gotoParkPos(double dAlt, double dAz)
 {
 	int nErr = PLUGIN_OK;
-	double dRa, dDec;
 	std::string sResp;
 	if(m_nDebugLevel >= 2) {
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
@@ -1531,6 +1590,10 @@ int OnStep::homeMount()
 	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called." << std::endl;
 	m_sLogFile.flush();
 	}
+	if(m_nDebugLevel >= 3) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsAtHome=" << (m_bIsAtHome?"Yes":"No") << " m_bHasBeenHomed=" << (m_bHasBeenHomed?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
 	if(m_bIsAtHome) {
 	if(m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] already homed." << std::endl;
@@ -1571,6 +1634,21 @@ int OnStep::isHomingDone(bool &bIsHomed)
 	}
 
 	bIsHomed = m_bIsAtHome;
+	if(m_nDebugLevel >= 3) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bIsAtHome=" << (m_bIsAtHome?"Yes":"No") << " bIsHomed=" << (bIsHomed?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
+	if(m_bIsAtHome) {
+		m_bHasBeenHomed = true;
+	if(m_nDebugLevel >= 3) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] m_bHasBeenHomed -> true" << std::endl;
+		m_sLogFile.flush();
+	}
+	}
+	if(m_nDebugLevel >= 2) {
+	m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] bIsHomed=" << (bIsHomed?"Yes":"No") << std::endl;
+	m_sLogFile.flush();
+	}
 	return nErr;
 }
 
@@ -1620,7 +1698,7 @@ int OnStep::Abort()
 	return nErr;
 }
 
-#pragma mark - time and site methods
+// --- time and site methods ---
 int OnStep::syncTime()
 {
 	int nErr = PLUGIN_OK;
@@ -1915,7 +1993,7 @@ void OnStep::setSyncLocationDataConnect(bool bSync)
 	m_bSyncLocationDataConnect = bSync;
 }
 
-#pragma mark  - Time and Date
+// --- Time and Date ---
 
 int OnStep::getLocalTime(std::string &sTime)
 {
@@ -2229,7 +2307,7 @@ void OnStep::setStopTrackingOnDisconnect(bool bStop)
 }
 
 
-#pragma mark - Parse result
+// --- Parse result ---
 int OnStep::parseFields(const std::string sIn, std::vector<std::string> &svFields, char cSeparator)
 {
 	int nErr = PLUGIN_OK;
@@ -2305,3 +2383,4 @@ const std::string OnStep::getTimeStamp()
 
 	return buf;
 }
+

@@ -24,7 +24,7 @@
 
 #include "StopWatch.h"
 
-#define PLUGIN_VERSION 1.200
+#define PLUGIN_VERSION 1.201
 
 
 enum OnStepErrors {PLUGIN_OK=0, NOT_CONNECTED, PLUGIN_CANT_CONNECT, PLUGIN_BAD_CMD_RESPONSE, COMMAND_FAILED, PLUGIN_ERROR, COMMAND_TIMEOUT};
@@ -47,12 +47,15 @@ class OnStep
 {
 public:
 	OnStep();
-	~OnStep();
+	virtual ~OnStep();
 
-	int Connect(std::string sPort);
+	virtual int Connect(std::string sPort);
 	int Disconnect();
 	void Reconnect(int nNewPortSpeed);
 	bool isConnected() const { return m_bIsConnected; }
+	// Cheap cached accessor — no serial I/O. Used by X2Mount::motorStatus2() to
+	// report homed state to TSX without issuing a :GU# command on every poll.
+	bool cachedHasBeenHomed() const { return m_bHasBeenHomed; }
 	
 	void setPortSpeed(int nPortSpeed);
 
@@ -64,34 +67,46 @@ public:
 	int getRaAndDec(double &dRa, double &dDec);
 	int getAltAndAz(double &dAlt, double &dAz);
 	int syncTo(double dRa, double dDec);
-	int isAligned(bool &bAligned);
+	virtual int isAligned(bool &bAligned);
 
 	int setTrackingRates(bool bSiderialTrackingOn, bool bIgnoreRates, double dRaRateArcSecPerSec, double dDecRateArcSecPerSec);
 	int getTrackRates(bool &bSiderialTrackingOn, double &dRaRateArcSecPerSec, double &dDecRateArcSecPerSec);
-	int isTrackingOn(bool &bTrakOn);
+	virtual int isTrackingOn(bool &bTrakOn);
 
 	int setSlewRate(int nRate);
 	void setGoToSlewRate(int nRate);
 	int getGoToSlewRate();
-	int startSlewTo(double dRa, double dDec);
+
+	void setZWOGuideRate(double dRate) { m_dZWOGuideRate = dRate; }
+	double getZWOGuideRate() { return m_dZWOGuideRate; }
+	virtual int getGuideRate(double &dRate) { dRate = m_dZWOGuideRate; return PLUGIN_OK; }
+	virtual int setGuideRate(double dRate) { m_dZWOGuideRate = dRate; return PLUGIN_OK; }
+
+	virtual int startSlewTo(double dRa, double dDec);
 	int isSlewToComplete(bool &bComplete);
 
 	int startOpenLoopMove(const MountDriverInterface::MoveDir Dir, unsigned int nRate);
 	int stopOpenLoopMove();
 	int getNbSlewRates();
-	int getRateName(int nZeroBasedIndex, std::string &sOut);
+	virtual int getRateName(int nZeroBasedIndex, std::string &sOut);
 
-	int gotoParkPos(double dAlt, double dAz);
-	int gotoPark();
+	virtual int startPulseGuide(std::string sDirection, int nDurationMs);
 
-	int isParkingComplete(bool &bComplete);
-	int getAtPark(bool &bParked);
-	int unPark();
-	int isUnparkDone(bool &bcomplete);
-	int setCurentPosAsPark();
+	virtual int gotoParkPos(double dAlt, double dAz);
+	virtual int gotoPark();
+	// Called by X2Mount::endPark after TSX's park slew completes.
+	// Default is a no-op — standard OnStep manages its own park state via :hP#.
+	// ZWOMount overrides to send :Sp01# + :hP# and set m_bIsParked.
+	virtual int finalizepark() { return PLUGIN_OK; }
 
-	int getLimits(double &dHoursEast, double &dHoursWest);
-	int getflipHourAngle(double &dHourAngle);
+	virtual int isParkingComplete(bool &bComplete);
+	virtual int getAtPark(bool &bParked);
+	virtual int unPark();
+	virtual int isUnparkDone(bool &bcomplete);
+	virtual int setCurentPosAsPark();
+
+	virtual int getLimits(double &dHoursEast, double &dHoursWest);
+	virtual int getflipHourAngle(double &dHourAngle);
 	int Abort();
 
 	int setSiteData(double dLongitude, double dLatitute, double dTimeZone);
@@ -103,8 +118,22 @@ public:
 	int syncTime();
 	int syncDate();
 
-	int homeMount();
-	int isHomingDone(bool &bIsHomed);
+	virtual int homeMount();
+	virtual int isHomingDone(bool &bIsHomed);
+
+	virtual int getDeviceName(std::string &sName) { sName = ""; return PLUGIN_OK; }
+
+	virtual int getHeightLimits(bool &bEnabled, int &nUpperDeg, int &nLowerDeg) { bEnabled = false; nUpperDeg = 90; nLowerDeg = 0; return PLUGIN_OK; }
+	virtual int setHeightLimits(bool /*bEnable*/, int /*nUpperDeg*/, int /*nLowerDeg*/) { return PLUGIN_OK; }
+	virtual int getMeridianConfig(int &nTrackPastDeg, int &nSlewPastDeg) { nTrackPastDeg = 0; nSlewPastDeg = 0; return PLUGIN_OK; }
+	virtual int setMeridianConfig(int /*nTrackPastDeg*/, int /*nSlewPastDeg*/) { return PLUGIN_OK; }
+
+	// Capability queries — X2Mount uses these instead of a runtime type flag.
+	// Override in derived classes to match the hardware's actual capabilities.
+	virtual bool supportsDriverSlewsToParkPosition() const { return true; }
+	virtual bool supportsFindHome() const { return false; }
+	virtual bool supportsMotorStatus() const { return false; }
+	virtual bool isZWOVariant() const { return false; }
 
 	int IsBeyondThePole(bool &bBeyondPole);
 
@@ -113,7 +142,7 @@ public:
 
 	void setDebugLevel(int nLevel);
 	void log(std::string sLogEntry);
-private:
+protected:
 
 	SerXInterface                       *m_pSerx;
 	TheSkyXFacadeForDriversInterface    *m_pTsx;
@@ -132,6 +161,7 @@ private:
 	bool    m_bHomeOnUnpark = false;
 	bool	m_bIsHoming = false;
 	bool    m_bIsAtHome = false;
+	bool    m_bHasBeenHomed = false;
 	bool    m_bIsParked = false;
 	bool	m_bIsTracking = false;
 	bool	m_bIsParking = false;
@@ -141,6 +171,7 @@ private:
 	int		m_nTrackRate = 0;
 	int		m_nSideOfPier = 0;
 	int     m_nGoToSlewRate = 0;
+	double  m_dZWOGuideRate = 0.5;
 
 	double m_dRaRateArcSecPerSec = 0;
 	double m_dDecRateArcSecPerSec = 0;
@@ -148,7 +179,6 @@ private:
 	double  m_dParkAz = 270.00;
 	double  m_dParkAlt = 0;
 
-	bool    m_bSyncDone = false;
 	int		m_nAlignementStars = 0;
 
 	std::string     m_sTime;
@@ -157,7 +187,7 @@ private:
 	double  m_dGotoRATarget = 0;						  // Current Target RA;
 	double  m_dGotoDECTarget = 0;                      // Current Goto Target Dec;
 
-	MountDriverInterface::MoveDir      m_nOpenLoopDir;
+	unsigned int    m_nOpenLoopDirMask = 0; // bitmask of active dirs: bit N=MD_NORTH..MD_WEST (values 0-3)
 
 	// limits don't change mid-course so we cache them
 	bool    m_bLimitCached = false;
