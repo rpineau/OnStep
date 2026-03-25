@@ -2381,8 +2381,10 @@ const std::string OnStep::getTimeStamp()
 	localtime_r(&ts.tv_sec, &tstruct);
 	char buf[32];
 	std::strftime(buf, sizeof(buf), "%Y-%m-%d.%H:%M:%S", &tstruct);
-	char result[40];
-	snprintf(result, sizeof(result), "%s.%03d", buf, (int)(ts.tv_nsec / 1000000L));
-	return result;
+	// std::format("{}.{:03d}", buf, ms) would be cleaner (C++20) but
+	// Apple's libc++ didn't ship <format> until Xcode 15 / macOS 14.
+	std::ostringstream oss;
+	oss << buf << '.' << std::setw(3) << std::setfill('0') << (int)(ts.tv_nsec / 1000000L);
+	return oss.str();
 }
 
