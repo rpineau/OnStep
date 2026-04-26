@@ -57,8 +57,8 @@ We implement every interface that any comparison plugin implements. `FindHomeInt
 | Move N/S/E/W | `:Mn#` `:Ms#` `:Me#` `:Mw#` | ✅ | ❌ (base) | ✅ | Pass |
 | Stop N/S/E/W | `:Qn#` `:Qs#` `:Qe#` `:Qw#` | ✅ | ❌ (base) | ✅ | Pass. Diagonal moves fixed: base now tracks active dirs as a bitmask (`m_nOpenLoopDirMask`); all active axes stopped on `endOpenLoopMove`. |
 | **Guiding** | | | | | |
-| Pulse guide (via OLM) | `:Me#`/`:Mw#` etc | ✅ | ❌ (base) | ❌ | Needs nighttime |
-| Native pulse guide | `:Mgdnnnn#` | ✅ | ✅ | ❌ | Via DirectGuideInterface; needs nighttime |
+| Pulse guide (via OLM) | `:Me#`/`:Mw#` etc | ✅ | ❌ (base) | ⚠️ | Calibration runs observed in log; guiding not confirmed working end-to-end. |
+| Native pulse guide | `:Mgdnnnn#` | ✅ | ✅ | ⚠️ | DirectGuide vtable was wrong (fixed 2026-03-24); `:Mgd` commands never fired before fix. Needs re-test. |
 | Set guide rate | `:Rg0.nn#` | ✅ | ✅ | ❌ | `setGuideRate()` sends `:Rg%.2f#`. UI spinner clamped 0.10–0.90 per spec. |
 | Get guide rate | `:Ggr#` | ✅ | ✅ | ❌ | Synced from mount at connect into `X2Mount::m_dZWOGuideRate`. |
 | **Sync** | | | | | |
@@ -100,8 +100,51 @@ We implement every interface that any comparison plugin implements. `FindHomeInt
 
 ## Priority TODO Items
 
+### Guiding — Active Investigation
+
+Neither pulse guide (OLM path) nor DirectGuide is working as expected. Investigation in progress.
+
+**What we know so far:**
+
+**DirectGuideInterface vtable was wrong (fixed 2026-03-24)**
+Our declaration order didn't match TSX's compiled-in vtable. TSX was calling
+`directGuideAbort()` when it meant to call `setDirectGuideAsynchronous(false)`, and calling
+`directGuideAsynchronous()` (returning 1) when it meant to call `directGuideMoveTelescope`.
+This meant no `:Mgd` commands were ever sent. Fixed by reordering the virtual methods to
+match the TSX ARM64 binary layout (verified via disassembly of `seriesJogMount` 0x48f7d4
+and `DirectGuide` 0x598848). See `UNDOCUMENTED_INTERFACES.md` for the confirmed vtable.
+
+**`:Mgd` protocol constraints (from ZWO spec v2.1)**
+- Format: `:Mgdnnnn#`, `nnnn` = 0000–3000 ms. No response. Fire-and-forget (async).
+- 3000ms is the firmware cap — added clamp in `directGuideMoveTelescope`.
+- Concurrent RA+DEC: we send both pulses back-to-back (RA then DEC). Spec says nothing
+  about concurrent commands on the same axis or across axes. Axes are likely independent
+  (separate motor controllers), but behaviour under overlap is not documented.
+- No faster small-move primitive exists in the ZWO protocol — `:Mgd` is the only option.
+
+**Pulse guide via OLM — calibration ran, active guiding fired, results unclear**
+OLM calibration sessions logged (from `~/OnStepLog.txt` session 2026-03-24):
+- Multiple calibration runs at 5s then 10s steps (TSX doubled step size = calibration
+  wasn't converging on first attempt).
+- Active guiding corrections were 0–1 s at `:R2#` (1x sidereal = 15 arcsec/s).
+- Log predates the DirectGuide vtable fix — DirectGuide path never actually fired.
+- Timestamps were 1-second resolution (now fixed to milliseconds).
+
+**Logging improvements made (2026-03-24)**
+- `getTimeStamp()` now millisecond resolution (`YYYY-MM-DD.HH:MM:SS.mmm`).
+- `directGuideMoveTelescope` logs TSX-requested offsets at 6 decimal places (arcsec)
+  and computed pulse durations (ms) before sending.
+
+**Next steps to investigate**
+- [ ] Install new build, run DirectGuide calibration, verify `:Mgd` commands appear in log.
+- [ ] Check if both RA and DEC pulses fire for diagonal corrections, or only one axis.
+- [ ] If calibration converges but guiding still drifts: check whether OLM guide rate
+      index 2 (1x sidereal, 15 arcsec/s) is appropriate, or should be index 0 (0.25x).
+- [ ] If `:Mgd` pulses fire but mount doesn't move: check ZWO guide rate (`:Ggr#` reads
+      back 0.25; `:Rg#` sets it) — confirm firmware is actually using it.
+- [ ] Investigate concurrent RA+DEC pulse behaviour if diagonal corrections are unreliable.
+
 ### Nice to Have
-- [ ] **Pulse guide / autoguiding**: Test DirectGuideInterface + `:Mgdnnnn#` at night.
 - [ ] **Daylight saving** (`:GH#`/`:SHn#`): SMTI handles timezone; DST handling may need verification.
 
 ### Not Needed

@@ -79,7 +79,7 @@ int ZWOMount::Connect(std::string sPort)
 		if(nErr == COMMAND_TIMEOUT)
 			nErr = PLUGIN_OK;
 		if(m_nDebugLevel >= 2) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] SMGE response : '" << sResp << "'" << std::endl;
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] SMGE response : '" << sResp << "' (nErr=" << nErr << ")" << std::endl;
 			m_sLogFile.flush();
 		}
 
@@ -108,7 +108,7 @@ int ZWOMount::Connect(std::string sPort)
 		if(nErr == COMMAND_TIMEOUT)
 			nErr = PLUGIN_OK;
 		if(m_nDebugLevel >= 2) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] SMTI response : '" << sResp << "'" << std::endl;
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] SMTI response : '" << sResp << "' (nErr=" << nErr << ")" << std::endl;
 			m_sLogFile.flush();
 		}
 
@@ -662,8 +662,6 @@ int ZWOMount::setHeightLimits(bool bEnable, int nUpperDeg, int nLowerDeg)
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
-	char cmd[32];
-
 	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. bEnable=" << (bEnable?"Yes":"No") << " upper=" << nUpperDeg << " lower=" << nLowerDeg << std::endl;
 		m_sLogFile.flush();
@@ -672,15 +670,21 @@ int ZWOMount::setHeightLimits(bool bEnable, int nUpperDeg, int nLowerDeg)
 	nErr = sendCommand(bEnable ? ":SLE#" : ":SLD#", sResp, 0);
 	if(nErr == COMMAND_TIMEOUT) nErr = PLUGIN_OK;
 
-	snprintf(cmd, sizeof(cmd), ":SLH%02d#", nUpperDeg);
-	nErr = sendCommand(cmd, sResp);
+	{
+		std::ostringstream oss;
+		oss << ":SLH" << std::setw(2) << std::setfill('0') << nUpperDeg << "#";
+		nErr = sendCommand(oss.str(), sResp);
+	}
 	if(nErr && m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :SLH error " << nErr << std::endl;
 		m_sLogFile.flush();
 	}
 
-	snprintf(cmd, sizeof(cmd), ":SLL%02d#", nLowerDeg);
-	nErr = sendCommand(cmd, sResp);
+	{
+		std::ostringstream oss;
+		oss << ":SLL" << std::setw(2) << std::setfill('0') << nLowerDeg << "#";
+		nErr = sendCommand(oss.str(), sResp);
+	}
 	if(nErr && m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :SLL error " << nErr << std::endl;
 		m_sLogFile.flush();
@@ -734,7 +738,6 @@ int ZWOMount::setMeridianConfig(int nTrackPastDeg, int nSlewPastDeg)
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
-	char cmd[32];
 
 	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. track=" << nTrackPastDeg << " slew=" << nSlewPastDeg << std::endl;
@@ -742,7 +745,12 @@ int ZWOMount::setMeridianConfig(int nTrackPastDeg, int nSlewPastDeg)
 	}
 
 	// :STannsnn# — nn = two single-bit flags (digit1=flip, digit2=continue-tracking), snn = signed slew limit angle (0..15 degrees past meridian)
-	snprintf(cmd, sizeof(cmd), ":STa%02d%+03d#", nTrackPastDeg, nSlewPastDeg);
+	std::ostringstream oss;
+	oss << ":STa"
+	    << std::setw(2) << std::setfill('0') << nTrackPastDeg
+	    << std::showpos << std::internal << std::setw(3) << std::setfill('0') << nSlewPastDeg
+	    << "#";
+	std::string cmd = oss.str();
 	nErr = sendCommand(cmd, sResp);
 	if(nErr && m_nDebugLevel >= 1) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] :STa error " << nErr << std::endl;
@@ -799,14 +807,15 @@ int ZWOMount::setGuideRate(double dRate)
 {
 	int nErr = PLUGIN_OK;
 	std::string sResp;
-	char cmd[32];
 
 	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] Called. dRate=" << dRate << std::endl;
 		m_sLogFile.flush();
 	}
 
-	snprintf(cmd, sizeof(cmd), ":Rg%.2f#", dRate);
+	std::ostringstream oss;
+	oss << std::fixed << std::setprecision(2) << ":Rg" << dRate << "#";
+	std::string cmd = oss.str();
 	nErr = sendCommand(cmd, sResp);
 	if(nErr) {
 		if(m_nDebugLevel >= 1) {

@@ -165,6 +165,10 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 	nErr = m_pSerx->writeFile((void *)sCmd.c_str(), sCmd.size(), ulBytesWrite);
 	m_commandDelayTimer.Reset();
 	m_pSerx->flushTx();
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] writeFile returned " << nErr << std::endl;
+		m_sLogFile.flush();
+	}
 	if(nErr) {
 		if(nErr == ERR_TXTIMEOUT)
 			m_bIsConnected = false;
@@ -180,7 +184,15 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 		std::this_thread::sleep_for(std::chrono::milliseconds(NO_RESPONSE_COMMAND_DELAY_MS));
 		return nErr;
 	}
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] calling readResponse, nTimeout=" << nTimeout << " cEndOfResponse=" << (int)cEndOfResponse << " nExpectedResLen=" << nExpectedResLen << std::endl;
+		m_sLogFile.flush();
+	}
 	nErr = readResponse(sResp, nTimeout, cEndOfResponse, nExpectedResLen);
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readResponse returned " << nErr << std::endl;
+		m_sLogFile.flush();
+	}
 	if(nErr) {
 	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ***** ERROR READING RESPONSE **** error = " << nErr << " , response : '" << sResp << "'" << std::endl;
@@ -2375,12 +2387,16 @@ void OnStep::log(std::string sLogEntry)
 
 const std::string OnStep::getTimeStamp()
 {
-	time_t     now = time(0);
-	struct tm  tstruct;
-	char       buf[80];
-	tstruct = *localtime(&now);
-	std::strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
-
-	return buf;
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	struct tm tstruct;
+	localtime_r(&ts.tv_sec, &tstruct);
+	char buf[32];
+	std::strftime(buf, sizeof(buf), "%Y-%m-%d.%H:%M:%S", &tstruct);
+	// std::format("{}.{:03d}", buf, ms) would be cleaner (C++20) but
+	// Apple's libc++ didn't ship <format> until Xcode 15 / macOS 14.
+	std::ostringstream oss;
+	oss << buf << '.' << std::setw(3) << std::setfill('0') << (int)(ts.tv_nsec / 1000000L);
+	return oss.str();
 }
 

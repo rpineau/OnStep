@@ -62,13 +62,31 @@
 #define __CLASS_ATTRIBUTE__(x) __attribute__((visibility("default")))
 #endif
 
+// DirectGuideInterface — undocumented TSX interface, reverse-engineered from TheSkyX binary.
+//
+// TSX vtable layout (ARM64, 8-byte slots, vptr base = first function pointer):
+//   vptr[0] (+0x00): deleting destructor
+//   vptr[1] (+0x08): complete object destructor
+//   vptr[2] (+0x10): directGuideAsynchronous()
+//   vptr[3] (+0x18): setDirectGuideAsynchronous(bool)
+//   vptr[4] (+0x20): directGuideMoveTelescope(const double&, const double&)
+//   vptr[5] (+0x28): directGuideAbort()
+//
+// Verified by tracing DlgWorkbench::seriesJogMount (0x48f7d4) and
+// DirectGuide() (0x598848) in the TSX ARM64 binary:
+//   - vptr+0x18 called with (this, bool)              → setDirectGuideAsynchronous
+//   - vptr+0x20 called with (this, &double, &double)  → directGuideMoveTelescope
+//   - vptr+0x28 called with (this), return ignored    → directGuideAbort
+//
+// IMPORTANT: Declaration order here determines the vtable slot order. Do NOT
+// reorder these methods — the layout must match TSX's compiled-in expectations.
 class DirectGuideInterface {
 public:
     virtual ~DirectGuideInterface() {}
-    virtual int directGuideMoveTelescope(const double& dRA, const double& dDec) = 0;
-    virtual int directGuideAbort() = 0;
     virtual bool directGuideAsynchronous() = 0;
     virtual int setDirectGuideAsynchronous(bool bAsync) = 0;
+    virtual int directGuideMoveTelescope(const double& dRA, const double& dDec) = 0;
+    virtual int directGuideAbort() = 0;
 };
 
 // FindHomeInterface — undocumented TSX interface, reverse-engineered from TheSkyX binary.
@@ -95,6 +113,9 @@ public:
 //   - Does NOT wait for findHomeLoop completion
 //   - Calls updateHomeStatus(1) before startFindHome, updateHomeStatus(0) after
 //     (but only if motorStatus2 returned true — otherwise skips second call)
+// IMPORTANT: Declaration order here determines vtable slot order and must match
+// TSX's compiled-in layout above exactly. Do NOT reorder, add, or remove virtual
+// methods — any change silently routes TSX calls to the wrong function.
 class FindHomeInterface {
 public:
     virtual ~FindHomeInterface() {}
@@ -162,6 +183,10 @@ public:
 //   address, not an output pointer. Writing u2 corrupts the thunk. (Bug 5)
 //
 // Must NOT issue serial commands — called at ~10Hz from status polls and findHomeLoop.
+//
+// IMPORTANT: Declaration order here determines vtable slot order and must match
+// TSX's compiled-in layout above exactly. Do NOT reorder, add, or remove virtual
+// methods — any change silently routes TSX calls to the wrong function.
 class MotorStatusInterface {
 public:
     virtual ~MotorStatusInterface() {}

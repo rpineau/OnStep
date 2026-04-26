@@ -43,12 +43,35 @@ mount and is separate from the standard `PulseGuideInterface2`.
 class DirectGuideInterface {
 public:
     virtual ~DirectGuideInterface() {}
-    virtual int directGuideMoveTelescope(const double& dRA, const double& dDec) = 0;
-    virtual int directGuideAbort() = 0;
     virtual bool directGuideAsynchronous() = 0;
     virtual int setDirectGuideAsynchronous(bool bAsync) = 0;
+    virtual int directGuideMoveTelescope(const double& dRA, const double& dDec) = 0;
+    virtual int directGuideAbort() = 0;
 };
 ```
+
+vtable layout (ARM64, 8-byte slots, vptr base = first function pointer):
+
+| Slot | Offset | Method |
+|------|--------|--------|
+| 0 | +0x00 | deleting destructor |
+| 1 | +0x08 | complete object destructor |
+| 2 | +0x10 | `directGuideAsynchronous()` |
+| 3 | +0x18 | `setDirectGuideAsynchronous(bool)` |
+| 4 | +0x20 | `directGuideMoveTelescope(const double&, const double&)` |
+| 5 | +0x28 | `directGuideAbort()` |
+
+Verified by tracing `DlgWorkbench::seriesJogMount` (0x48f7d4) and `DirectGuide()` (0x598848)
+in the TSX ARM64 binary:
+- vptr+0x18 called with `(this, bool)` → `setDirectGuideAsynchronous`
+- vptr+0x20 called with `(this, &double, &double)` → `directGuideMoveTelescope`; return value checked as int error code
+- vptr+0x28 called with `(this)`, return ignored → `directGuideAbort` (only when all guide params are zero)
+
+**IMPORTANT:** Declaration order in the C++ class determines vtable slot order. The method order
+above must be preserved exactly. Getting this wrong causes TSX to call the wrong methods —
+e.g. slot 3 being `directGuideAbort` instead of `setDirectGuideAsynchronous` causes TSX to
+abort any pending move instead of setting async mode, and then get error code 1 back from
+`directGuideAsynchronous` when it tries to call `directGuideMoveTelescope`.
 
 ### FindHomeInterface
 
