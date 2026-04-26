@@ -165,6 +165,10 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 	nErr = m_pSerx->writeFile((void *)sCmd.c_str(), sCmd.size(), ulBytesWrite);
 	m_commandDelayTimer.Reset();
 	m_pSerx->flushTx();
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] writeFile returned " << nErr << std::endl;
+		m_sLogFile.flush();
+	}
 	if(nErr) {
 		if(nErr == ERR_TXTIMEOUT)
 			m_bIsConnected = false;
@@ -180,7 +184,15 @@ int OnStep::sendCommand(const std::string sCmd, std::string &sResp, int nTimeout
 		std::this_thread::sleep_for(std::chrono::milliseconds(NO_RESPONSE_COMMAND_DELAY_MS));
 		return nErr;
 	}
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] calling readResponse, nTimeout=" << nTimeout << " cEndOfResponse=" << (int)cEndOfResponse << " nExpectedResLen=" << nExpectedResLen << std::endl;
+		m_sLogFile.flush();
+	}
 	nErr = readResponse(sResp, nTimeout, cEndOfResponse, nExpectedResLen);
+	if(m_nDebugLevel >= 2) {
+		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] readResponse returned " << nErr << std::endl;
+		m_sLogFile.flush();
+	}
 	if(nErr) {
 	if(m_nDebugLevel >= 2) {
 		m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] ***** ERROR READING RESPONSE **** error = " << nErr << " , response : '" << sResp << "'" << std::endl;

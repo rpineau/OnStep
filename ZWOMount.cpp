@@ -79,7 +79,7 @@ int ZWOMount::Connect(std::string sPort)
 		if(nErr == COMMAND_TIMEOUT)
 			nErr = PLUGIN_OK;
 		if(m_nDebugLevel >= 2) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] SMGE response : '" << sResp << "'" << std::endl;
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] SMGE response : '" << sResp << "' (nErr=" << nErr << ")" << std::endl;
 			m_sLogFile.flush();
 		}
 
@@ -108,7 +108,7 @@ int ZWOMount::Connect(std::string sPort)
 		if(nErr == COMMAND_TIMEOUT)
 			nErr = PLUGIN_OK;
 		if(m_nDebugLevel >= 2) {
-			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] SMTI response : '" << sResp << "'" << std::endl;
+			m_sLogFile << "["<<getTimeStamp()<<"]"<< " [" << __func__ << "] SMTI response : '" << sResp << "' (nErr=" << nErr << ")" << std::endl;
 			m_sLogFile.flush();
 		}
 
